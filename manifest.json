@@ -1,0 +1,15 @@
+{
+  "name": "Morning App",
+  "short_name": "Morning",
+  "description": "Morning routine, MITs and LITs, and the evening review",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F3F5F1",
+  "theme_color": "#1E6B57",
+  "icons": [
+    {"src": "/site/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "/site/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ],
+  "id": "/"
+}

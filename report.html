@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day report</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Outfit:wght@500;600;700&display=swap">
+<style>
+  /* One A4 page in black ink and outlines only, all text at least 12pt (Design Spec v2, 1g). */
+  @page { size: A4 portrait; margin: 12mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #E9ECE8; color: #000; font: 16px/1.35 'DM Sans', system-ui, sans-serif; }
+  .bar { display: flex; gap: 8px; justify-content: center; padding: 12px; }
+  .bar button { min-height: 44px; padding: 0 18px; border-radius: 12px; border: 0; background: #17201D; color: #fff; font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; }
+  .page { width: 210mm; min-height: 297mm; margin: 0 auto 24px; background: #fff; padding: 12mm; display: flex; flex-direction: column; gap: 18px; }
+  h1, h2 { font-family: Outfit, sans-serif; font-weight: 600; margin: 0; }
+  h1 { font-size: 40px; line-height: 1.05; } h2 { font-size: 19px; margin-bottom: 8px; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #000; padding-bottom: 10px; }
+  .eyebrow { font-size: 16px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .cols { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; }
+  .mit { display: flex; gap: 10px; border: 1px solid #000; border-radius: 8px; padding: 10px; margin-bottom: 8px; break-inside: avoid; }
+  .tick { width: 16px; height: 16px; border: 1.5px solid #000; border-radius: 3px; flex-shrink: 0; margin-top: 3px; }
+  .tick.mit2 { border-width: 2px; }
+  .block { display: flex; gap: 10px; border: 1px solid #000; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; }
+  .block b { width: 110px; flex-shrink: 0; }
+  .grat { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .grat .photo { aspect-ratio: 4 / 3; border: 1px solid #000; border-radius: 6px; display: flex; align-items: flex-end; padding: 4px 6px; }
+  .grat p { margin: 6px 0 0; min-height: 22px; }
+  .list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
+  .habits { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 14px; }
+  .li { display: flex; gap: 8px; align-items: flex-start; }
+  footer { margin-top: auto; border-top: 1px solid #000; padding-top: 10px; font-style: italic; }
+  @media print {
+    body { background: #fff; }
+    .bar { display: none; }
+    .page { width: auto; min-height: auto; margin: 0; padding: 0; }
+  }
+  @media (max-width: 820px) { .page { width: auto; min-height: 0; margin: 0 8px 16px; padding: 16px; } .cols, .grat, .habits { grid-template-columns: 1fr; } h1 { font-size: 30px; } }
+</style>
+</head>
+<body>
+<div class="bar"><button id="print" type="button">Print or save as PDF</button></div>
+<article class="page" id="page"><p class="muted">Loading…</p></article>
+<script>
+"use strict";
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const hhmm = t => t ? String(t).slice(0, 5) : "";
+const date = new URLSearchParams(location.search).get("date") || "";
+
+async function main() {
+  const r = await fetch("/api/day?date=" + encodeURIComponent(date), { credentials: "include", cache: "no-store" });
+  if (!r.ok) { document.getElementById("page").innerHTML = '<p>Could not load this day. Please sign in and try again.</p>'; return; }
+  const d = await r.json();
+  const slot = s => d.tasks.filter(t => t.slot === s);
+  const mits = slot("MIT"), lits = slot("LIT"), also = slot("ALSO");
+  const blocks = mits.map((t, i) => ({ t, i })).filter(x => x.t.starts_at).sort((a, b) => String(a.t.starts_at).localeCompare(String(b.t.starts_at)));
+  const morning = d.journal.filter(j => j.kind === "morning")[0];
+  document.title = "Day report " + d.date;
+  const nice = new Date(d.date + "T12:00:00").toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
+  const planned = d.plan && d.plan.confirmed_at ? "Planned " + new Date(d.plan.confirmed_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }) : "Not planned yet";
+  const clock = t => { const [h, m] = String(t).split(":"); return `${Number(h)}:${m}`; };
+  document.getElementById("page").innerHTML = `
+  <header><div><div class="eyebrow">Day report</div><h1>${esc(nice)}</h1></div><div>${esc(planned)}</div></header>
+  <div class="cols">
+    <section><h2>Most Important Tasks</h2>
+      ${mits.map((t, i) => `<div class="mit"><span class="tick mit2"></span><div>
+        <div><b>${i + 1}. ${esc(t.title_snapshot)}</b></div>
+        ${t.output_goal ? `<div>Output: ${esc(t.output_goal)}</div>` : ""}
+        ${t.steps.length ? `<div>Steps: ${t.steps.map(s => esc(s.text)).join(" · ")}</div>` : ""}
+      </div></div>`).join("") || "<p>No MITs picked.</p>"}
+    </section>
+    <section><h2>MIT time blocks</h2>
+      ${blocks.map(x => `<div class="block"><b>${clock(x.t.starts_at)} – ${clock(x.t.ends_at)}</b><span>MIT ${x.i + 1}</span></div>`).join("") || "<p>No time blocked yet.</p>"}
+      ${also.length ? `<h2 style="margin-top:14px">Also on today</h2>${also.map(t => `<div class="li" style="margin-bottom:6px"><span class="tick"></span>${esc(t.title_snapshot)}</div>`).join("")}` : ""}
+    </section>
+  </div>
+  <section><h2>Grateful for</h2>
+    <div class="grat">${[1, 2, 3, 4].map(n => `<div><div class="photo">${n}</div><p>${esc((d.gratitude.find(g => g.position === n) || {}).statement || "")}</p></div>`).join("")}</div>
+  </section>
+  <section><h2>Less Important Tasks</h2>
+    <div class="list">${lits.map(t => `<div class="li"><span class="tick"></span>${esc(t.title_snapshot)}</div>`).join("") || "<p>None picked.</p>"}</div>
+  </section>
+  <section><h2>Habits to honour</h2>
+    <div class="habits">${d.habits.filter(h => h.applies).map(h => `<div class="li"><span class="tick"></span>${esc(h.name)}</div>`).join("")}</div>
+  </section>
+  ${morning ? `<footer>${esc(morning.transcript.split("\n")[0].slice(0, 220))}</footer>` : ""}`;
+}
+document.getElementById("print").addEventListener("click", async () => {
+  window.print();
+  fetch("/api/day/printed", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ date }) }).catch(() => {});
+});
+main();
+</script>
+</body>
+</html>

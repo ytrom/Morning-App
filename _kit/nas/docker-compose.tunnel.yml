@@ -1,0 +1,46 @@
+# Morning App - Stage 2: the same app plus the Cloudflare tunnel, for use away from the office.
+# Only switch to this AFTER the Cloudflare Access login is set up (see NAS-SETUP.md).
+# .env next to this file holds:  POSTGRES_PASSWORD=...  and  TUNNEL_TOKEN=eyJ...
+# Fill in ACCESS_TEAM and ACCESS_AUD from Cloudflare Zero Trust (neither is secret).
+services:
+  web:
+    build: .
+    image: morning-app-web
+    container_name: morning-app-web
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8090
+      - TZ=Australia/Brisbane
+      - DATABASE_URL=postgres://morning:${POSTGRES_PASSWORD}@db:5432/morning
+      - MC_URL=http://192.168.0.253:3000
+      - ACCESS_TEAM=young-brook-2755
+      - ACCESS_AUD=paste-the-morning-app-audience-tag-here
+    ports:
+      - "8090:8090"
+    volumes:
+      - /volume1/docker/morningapp/app:/srv
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    container_name: morning-app-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=morning
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=morning
+      - TZ=Australia/Brisbane
+    volumes:
+      - /volume1/docker/morningapp/pgdata:/var/lib/postgresql/data
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: morning-app-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - web
