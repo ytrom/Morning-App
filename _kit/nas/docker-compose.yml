@@ -1,0 +1,36 @@
+# Morning App - Stage 1: the app and its Postgres database on the office network only (no internet yet).
+# In Container Manager: Project > Create, path docker/morning-app (this file and the Dockerfile go there).
+# Put the database password in a file called .env next to this file:  POSTGRES_PASSWORD=choose-one
+# If the morningapp shared folder isn't on volume1, change /volume1 below to match.
+services:
+  web:
+    build: .
+    image: morning-app-web
+    container_name: morning-app-web
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8090
+      - TZ=Australia/Brisbane
+      - DATABASE_URL=postgres://morning:${POSTGRES_PASSWORD}@db:5432/morning
+    ports:
+      - "8090:8090"
+    volumes:
+      - /volume1/morningapp/morning-app:/srv
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    container_name: morning-app-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=morning
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=morning
+      - TZ=Australia/Brisbane
+    volumes:
+      - /volume1/docker/morning-app/pgdata:/var/lib/postgresql/data
+    # To report from Power BI or Excel on the office network, uncomment the next two lines.
+    # ports:
+    #   - "5433:5432"
