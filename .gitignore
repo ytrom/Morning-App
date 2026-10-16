@@ -1,0 +1,6 @@
+# Secrets and data stay on the NAS only
+.env
+_kit/access.json
+_kit/*.log
+pgdata/
+__pycache__/
