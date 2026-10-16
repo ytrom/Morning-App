@@ -112,7 +112,7 @@ def api_get(path, qs):
     if path == "/api/day":
         return db.get_day(db.parse_date(arg("date", today().isoformat())))
     if path == "/api/tasks":
-        return {"tasks": db.list_tasks(arg("q"))}
+        return {"tasks": db.list_tasks(arg("q")), "mc": db.mc_status()}
     if path == "/api/settings":
         return db.settings()
     if path == "/api/stats":

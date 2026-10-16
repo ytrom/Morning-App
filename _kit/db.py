@@ -1,7 +1,7 @@
 # Morning App: the Postgres tables and every read and write the server makes.
 # Uses pg8000 (pure Python, no compiler needed), installed in the Docker image by _kit/nas/Dockerfile.
 # The connection comes from DATABASE_URL, e.g. postgres://morning:secret@db:5432/morning
-import datetime, decimal, os, threading, urllib.parse
+import datetime, decimal, json, os, threading, time, urllib.parse, urllib.request
 
 import pg8000.native
 
@@ -314,8 +314,51 @@ def get_day(date):
     }
 
 
+# Mission Control (Next.js on the office network) is the source of the task list when MC_URL is set.
+# Its open tasks for Morty are copied into `task` (linked by mc_task_id) at most once a minute; tasks it
+# has finished or deleted drop off the list here. Quick-adds made in this app stay local.
+MC_URL = os.environ.get("MC_URL", "").rstrip("/")
+_mc = {"at": 0.0, "ok": None, "error": ""}
+
+
+def sync_mc(force=False):
+    if not MC_URL or (not force and time.time() - _mc["at"] < 60):
+        return
+    _mc["at"] = time.time()
+    try:
+        with urllib.request.urlopen(MC_URL + "/api/tasks", timeout=6) as r:
+            rows = json.loads(r.read())["tasks"]
+    except Exception as e:
+        _mc.update(ok=False, error=str(e)[:200])
+        return
+    mine = [t for t in rows if str(t.get("assignee") or "morty").lower() == "morty" and t.get("status") != "done"]
+
+    def run():
+        for t in mine:
+            due = str(t.get("dueDate") or "")[:10]
+            q("""INSERT INTO task (title, project, due_date, mc_task_id) VALUES (:t, :p, :d, :m)
+                 ON CONFLICT (mc_task_id) DO UPDATE SET title = EXCLUDED.title, project = EXCLUDED.project,
+                   due_date = EXCLUDED.due_date""",
+              t=text(t.get("title"), 300) or "(untitled)", p=text(t.get("projectName"), 100) or None,
+              d=datetime.date.fromisoformat(due) if len(due) == 10 else None, m=str(t["id"]))
+        # Finished or deleted in Mission Control: drop it from the list here.
+        q("""UPDATE task SET done_at = now() WHERE mc_task_id IS NOT NULL AND done_at IS NULL
+              AND NOT (mc_task_id = ANY(CAST(:ids AS text[])))""", ids=[str(t["id"]) for t in mine])
+    try:
+        tx(run)
+    except Exception as e:
+        _mc.update(ok=False, error=str(e)[:200])
+        return
+    _mc.update(ok=True, error="")
+
+
+def mc_status():
+    return {"connected": bool(MC_URL), "ok": _mc["ok"], "error": _mc["error"]}
+
+
 def list_tasks(search=""):
-    return q("""SELECT id, title, project, due_date, created_at FROM task
+    sync_mc()
+    return q("""SELECT id, title, project, due_date, created_at, mc_task_id IS NOT NULL AS from_mc FROM task
                  WHERE done_at IS NULL AND (:s = '' OR title ILIKE '%' || :s || '%' OR coalesce(project, '') ILIKE '%' || :s || '%')
                  ORDER BY due_date NULLS LAST, created_at DESC LIMIT 300""", s=text(search, 100))
 

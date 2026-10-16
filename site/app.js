@@ -230,7 +230,7 @@ function viewTasks() {
   ];
   const chip = (f, label) => `<button type="button" class="chip" aria-pressed="${S.filter === f}" data-act="filter" data-f="${f}">${label}</button>`;
   actions(nextBtn("#plan", "Next: plan my MITs"));
-  return `${stepHead("Local task list", 3, "Choose today's tasks", "#plan")}
+  return `${stepHead(S.mc && S.mc.connected ? (S.mc.ok === false ? "Mission Control unreachable · showing last copy" : "From Mission Control") : "Local task list", 3, "Choose today's tasks", "#plan")}
   <div class="meters">${meter("MIT")}${meter("LIT")}</div>
   <form data-act="add-task" class="row"><label class="sr" for="q">Search or add a task</label>
     <input type="search" id="q" class="grow" placeholder="Search or add a task" value="${esc(S.search)}" data-act="search" autocomplete="off"></form>
@@ -418,7 +418,7 @@ function render() {
 
 async function refresh(what = "day") {
   if (what === "day" || what === "all") S.day = await api("/api/day?date=" + S.date);
-  if (S.tab === "tasks") S.tasks = (await api("/api/tasks?q=")).tasks;
+  if (S.tab === "tasks") { const r = await api("/api/tasks?q="); S.tasks = r.tasks; S.mc = r.mc; }
   if (S.tab === "stats") S.stats = await api("/api/stats?days=30");
   if (S.tab === "settings") S.settings = await api("/api/settings");
   render();
