@@ -130,6 +130,7 @@ def api_post(path, b):
         "/api/day/pick": lambda: db.pick_task(date(), b.get("slot"), b.get("task_id"), b.get("carried_from_id"), b.get("title")),
         "/api/day/move": lambda: db.move_task(b["id"], b.get("slot")),
         "/api/day/unpick": lambda: db.unpick(b["id"]),
+        "/api/day/tomorrow": lambda: db.carry_to_tomorrow(b["id"]),
         "/api/day/task": lambda: db.update_day_task(b["id"], b),
         "/api/day/confirm": lambda: db.set_plan_flag(date(), "confirmed"),
         "/api/day/printed": lambda: db.set_plan_flag(date(), "printed"),

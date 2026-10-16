@@ -287,7 +287,8 @@ def get_day(date):
                     FROM habit h
                     LEFT JOIN habit_log l ON l.habit_id = h.id AND l.day_plan_id = :d
                    WHERE h.archived_at IS NULL ORDER BY h.sort_order, h.id""", d=did or 0)
-    habits = [h for h in habits if applies(h, date) or h["met"] is not None]
+    for h in habits:  # habits not set for this weekday still show, muted, in the evening review
+        h["applies"] = applies(h, date)
 
     # Unfinished MITs and LITs from the most recent earlier day, offered first in the picker.
     prev = one("SELECT id, plan_date FROM day_plan WHERE plan_date < :d ORDER BY plan_date DESC LIMIT 1", d=date)
@@ -477,6 +478,19 @@ def update_day_task(day_task_id, data):
     tx(run)
 
 
+def carry_to_tomorrow(day_task_id):
+    """Put an unfinished task on the next day's list, in the same slot (the limits still apply)."""
+    t = one("""SELECT t.slot, d.plan_date FROM day_task t JOIN day_plan d ON d.id = t.day_plan_id WHERE t.id = :i""", i=int(day_task_id))
+    if not t:
+        raise BadRequest("That task is no longer on the list.")
+    nxt = t["plan_date"] + datetime.timedelta(days=1)
+    already = one("""SELECT 1 AS x FROM day_task n JOIN day_plan d ON d.id = n.day_plan_id
+                      WHERE d.plan_date = :n AND n.carried_from_id = :i""", n=nxt, i=int(day_task_id))
+    if already:
+        return {"already": True}
+    return pick_task(nxt, t["slot"], carried_from_id=day_task_id)
+
+
 def set_plan_flag(date, flag):
     col = {"confirmed": "confirmed_at", "printed": "printed_at"}[flag]
     q(f"UPDATE day_plan SET {col} = now() WHERE id = :d", d=day_id(date))
@@ -565,10 +579,10 @@ def seed_defaults():
     # First run only: the habits and routine from the plan, so the app isn't empty. All editable in Settings.
     if not one("SELECT 1 AS x FROM habit LIMIT 1"):
         for n, (name, kind, target, unit) in enumerate([
-                ("Walk 12,000 steps", "number", 12000, "steps"),
+                ("Walked 12,000 steps", "number", 12000, "steps"),
                 ("Ate only keto", "yes_no", None, None),
                 ("No sugar", "yes_no", None, None),
-                ("Drink water", "number", 2.5, "L")], 1):
+                ("Drank water", "number", 2.5, "L")], 1):
             save_habit({"name": name, "kind": kind, "target": target, "unit": unit, "sort_order": n})
     if not one("SELECT 1 AS x FROM routine_item LIMIT 1"):
         for n, name in enumerate(["Glass of water", "5 minutes of daylight", "Phone greyscale on", "Breathing exercise"], 1):
