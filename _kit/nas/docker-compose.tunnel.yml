@@ -18,7 +18,7 @@ services:
     ports:
       - "8090:8090"
     volumes:
-      - /volume1/morningapp/morning-app:/srv
+      - /volume1/docker/morningapp/app:/srv
     depends_on:
       - db
 
@@ -32,7 +32,7 @@ services:
       - POSTGRES_DB=morning
       - TZ=Australia/Brisbane
     volumes:
-      - /volume1/docker/morning-app/pgdata:/var/lib/postgresql/data
+      - /volume1/docker/morningapp/pgdata:/var/lib/postgresql/data
 
   tunnel:
     image: cloudflare/cloudflared:latest
