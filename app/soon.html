@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en-AU"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Workout">
+<meta name="theme-color" content="#0d7480">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}*,*::before,*::after{box-sizing:border-box}[hidden]{display:none!important}</style>
+<title>Morty's Routines</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column, day picker strip on top, today's session as a checklist of exercise rows */
+:root {
+  --bg: #eef3f4; --surface: #ffffff; --ink: #13222b; --muted: #5a6b74; --line: #d5dfe3;
+  --accent: #0d7480; --accent-soft: #d6ecee; --done: #2f7d4f; --done-soft: #dcefe3;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f181d; --surface: #172329; --ink: #e4eef1; --muted: #93a6ae; --line: #2a3a42;
+  --accent: #4fc0cb; --accent-soft: #173c42; --done: #6fcf97; --done-soft: #1b3a29; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f181d; --surface: #172329; --ink: #e4eef1; --muted: #93a6ae; --line: #2a3a42;
+  --accent: #4fc0cb; --accent-soft: #173c42; --done: #6fcf97; --done-soft: #1b3a29; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font: 16px/1.45 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; }
+.wrap { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 4px 0 0; font-size: .95rem; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day { font: 600 .95rem var(--display); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 0 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.day .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.day.part .dot { background: var(--accent); }
+.day.full .dot { background: var(--done); }
+.day[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.day[aria-pressed="true"] .dot { background: var(--surface); }
+.day:focus-visible, .check:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+.head h2 { font: 700 1.5rem/1.1 var(--display); margin: 0; }
+.head .meta { color: var(--muted); font-size: .9rem; }
+.bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--done); width: 0; transition: width .3s; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group h3 { font: 600 .8rem var(--body); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 6px 0 0; }
+.item { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.item.is-done { background: var(--done-soft); border-color: transparent; }
+.item.is-done .name { text-decoration: line-through; text-decoration-color: var(--done); }
+.check { width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--accent); background: transparent; cursor: pointer;
+  display: grid; place-items: center; padding: 0; color: var(--surface); }
+.item.is-done .check { background: var(--done); border-color: var(--done); }
+.check svg { width: 18px; height: 18px; opacity: 0; }
+.item.is-done .check svg { opacity: 1; }
+.body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.name { font-weight: 600; font-size: 1.05rem; }
+.dose { font: 600 1rem var(--display); letter-spacing: .03em; color: var(--accent); font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: .9rem; }
+.vids { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.vid { display: inline-flex; align-items: center; gap: 5px; font-size: .85rem; font-weight: 600; color: var(--accent);
+  background: var(--accent-soft); border-radius: 99px; padding: 4px 10px; text-decoration: none; }
+.vid svg { width: 12px; height: 12px; fill: currentColor; }
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: .85rem; }
+.reset { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 6px 12px; font: inherit; cursor: pointer; }
+.cheer { background: var(--done-soft); color: var(--done); border-radius: 12px; padding: 12px 14px; font-weight: 600; }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.tabs a { display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px 2px; border-radius: 9px; font: 600 .85rem/1.1 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+.tabs a[aria-current="page"] { background: var(--accent); color: var(--surface); }
+@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+</style>
+
+<style>
+.pills { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pills button { font: 600 1.05rem var(--display); letter-spacing: .03em; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 99px; padding: 12px 8px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.soon { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 40px 16px; text-align: center; }
+.soon h2 { font: 700 1.8rem var(--display); margin: 0 0 6px; }
+.soon p { color: var(--muted); margin: 0; }
+</style>
+</head><body>
+<div class="wrap">
+  <header>
+    <h1>Routines</h1>
+    <p class="sub">Start and finish the day the same way, every day</p>
+  </header>
+  <nav class="tabs" aria-label="Pages"><a href="routine.html">Disciplines</a><a href="./">Workout</a><a href="soon.html#reading">Reading</a><a href="performance.html">Performance</a></nav>
+    <section class="soon">
+    <h2 id="rtitle"></h2>
+    <p>Coming soon</p>
+  </section>
+</div>
+<script src="habits.js?v=2"></script>
+<script src="plan.js?v=1"></script>
+<script>
+const SOON = { "#reading": "Reading", "#review": "Daily Review", "#mit": "MIT &amp; Plan for Tomorrow", "#calendar": "Calendar" };
+document.getElementById("rtitle").innerHTML = SOON[location.hash] || "Coming soon";
+document.title = "Morty's " + (SOON[location.hash] || "Routines").replace("&amp;", "&");
+</script>
+<script src="nav.js?v=4"></script>
+</body></html>
