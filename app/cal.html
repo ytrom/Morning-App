@@ -91,6 +91,10 @@ h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-
 .cal .ev.dn { opacity: .55; }
 .cal .ev.dn b { text-decoration: line-through; }
 .cal .ev.clash { outline: 2px solid #c0392b; }
+.cal .ev.park { background: var(--done-soft); border-color: var(--done); opacity: 1; }
+.cal .ev.park b, .cal .ev.park i { text-decoration: none; color: var(--done); }
+.chase { display: flex; flex-direction: column; gap: 6px; }
+.chase a { display: block; background: var(--done-soft); color: var(--done); border-radius: 10px; padding: 8px 12px; font-weight: 600; font-size: .92rem; text-decoration: none; }
 .cal .now { position: absolute; left: 56px; right: 0; border-top: 2px solid #c0392b; z-index: 3; }
 .cal .now::before { content: ""; position: absolute; left: -5px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: #c0392b; }
 .mtag { font: 700 .7rem/1 var(--body); text-transform: uppercase; letter-spacing: .06em; margin-right: 5px; }
@@ -120,6 +124,7 @@ h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-
     <button class="step" id="next" type="button" aria-label="Next day">&#8250;</button>
   </section>
   <div id="sheet" aria-live="polite"></div>
+  <div id="chase" class="chase"></div>
   <div id="unplaced"></div>
   <div class="cal" id="cal"></div>
   <div class="foot"><span id="saved">Place and move blocks in Mission Control › Calendar. Ticks here save back to it.</span></div>
@@ -127,6 +132,8 @@ h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-
 <script>
 // Work > Calendar: the day's MIT and LIT blocks from Mission Control's day plan, on a 5am-10pm timeline.
 // Read through this app's server (/api/mc/day-plan). Tapping a block shows its steps to tick.
+// MITs parked as "Done for today, waiting on…" (/api/mc/waiting) show green with ⏸ and their chase day,
+// and anything due a chase shows at the top of that day.
 const FIRST = 5, LAST = 22, PX = 1.0;
 const z = n => String(n).padStart(2, "0");
 const iso = d => d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
@@ -134,10 +141,12 @@ const mins = t => { const [a, b] = t.split(":").map(Number); return a * 60 + (b 
 const nice = m => (Math.floor(m / 60) % 12 || 12) + ":" + z(m % 60) + (m < 720 ? "am" : "pm");
 const has = s => typeof s === "string" && /^\d{2}:\d{2}$/.test(s);
 const len = p => p.kind === "mit" ? Math.ceil(p.steps.reduce((a, s) => a + (+s.min || 0), 0) * 1.15 / 5) * 5 : (+(p.steps[0] || {}).min || 30);
-const isDone = p => p.kind === "mit" && p.steps.length ? p.steps.every(s => s.done) : !!p.done;
+const isDone = p => !!p.done || (p.kind === "mit" && p.steps.length > 0 && p.steps.every(s => s.done));
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const chaseDay = k => { const d = new Date(k + "T12:00"); return DAYS[d.getDay()] + " " + d.getDate() + "/" + (d.getMonth() + 1); };
 const today = new Date(); today.setHours(12, 0, 0, 0);
-let sel = new Date(today), items = [], openId = null;
-const cal = document.getElementById("cal"), sheet = document.getElementById("sheet"), unplaced = document.getElementById("unplaced"), saved = document.getElementById("saved");
+let sel = new Date(today), items = [], waiting = [], openId = null;
+const chase = document.getElementById("chase"), cal = document.getElementById("cal"), sheet = document.getElementById("sheet"), unplaced = document.getElementById("unplaced"), saved = document.getElementById("saved");
 
 let saving = Promise.resolve();
 function keep(p) {
@@ -153,11 +162,12 @@ async function load() {
   document.getElementById("dayname").textContent = +sel === +today ? "Today" : sel.toLocaleDateString(undefined, { weekday: "long" });
   document.getElementById("daydate").textContent = sel.toLocaleDateString(undefined, { day: "numeric", month: "long" });
   try {
-    const r = await fetch("api/mc/day-plan?from=" + k + "&to=" + k);
+    const [r, w] = await Promise.all([fetch("api/mc/day-plan?from=" + k + "&to=" + k), fetch("api/mc/waiting").catch(() => null)]);
     const d = await r.json();
     if (!r.ok) throw 0;
     items = d.items || [];
-  } catch { items = []; cal.innerHTML = ""; sheet.innerHTML = ""; unplaced.innerHTML = '<div class="warn">Couldn\'t reach Mission Control. Check it\'s running, then come back to this page.</div>'; return; }
+    waiting = w && w.ok ? ((await w.json()).items || []) : [];
+  } catch { items = []; chase.innerHTML = ""; cal.innerHTML = ""; sheet.innerHTML = ""; unplaced.innerHTML = '<div class="warn">Couldn\'t reach Mission Control. Check it\'s running, then come back to this page.</div>'; return; }
   draw();
 }
 
@@ -165,16 +175,26 @@ function draw() {
   const mits = items.filter(i => i.kind === "mit");
   const label = p => p.kind === "mit" ? "MIT " + (mits.indexOf(p) + 1) : "LIT";
   const placed = items.filter(i => has(i.start)).sort((a, b) => mins(a.start) - mins(b.start));
-  const waiting = items.filter(i => !has(i.start));
+  const unset = items.filter(i => !has(i.start));
   const clash = new Set();
   placed.forEach((a, i) => placed.slice(i + 1).forEach(b => { if (mins(b.start) < mins(a.start) + len(a)) { clash.add(a.id); clash.add(b.id); } }));
 
+  const parked = p => p.kind === "mit" && isDone(p) && waiting.find(w => w.planId === p.id);
+  // Chases due this day (or overdue, when looking at today)
+  const k = iso(sel), isToday = +sel === +today;
+  chase.innerHTML = "";
+  waiting.filter(w => isToday ? w.chaseOn <= k : w.chaseOn === k).forEach(w => {
+    const a = document.createElement("a"); a.href = "work.html";
+    a.textContent = "⏸ Chase: " + w.title + " · waiting on " + (w.waitingOn || "someone");
+    chase.append(a);
+  });
+
   unplaced.innerHTML = "";
-  if (!items.length) unplaced.innerHTML = '<div class="unplaced">Nothing planned for this day yet. Plan MITs and LITs in Mission Control.</div>';
-  else if (waiting.length) {
+  if (!items.length && !chase.childElementCount) unplaced.innerHTML = '<div class="unplaced">Nothing planned for this day yet. Plan MITs and LITs in Mission Control.</div>';
+  else if (unset.length) {
     const u = document.createElement("div"); u.className = "unplaced";
     u.append("Not on the calendar yet: ");
-    waiting.forEach((p, i) => { const b = document.createElement("b"); b.textContent = label(p) + " " + p.title; u.append(b, i < waiting.length - 1 ? ", " : ". Place them in Mission Control › Calendar."); });
+    unset.forEach((p, i) => { const b = document.createElement("b"); b.textContent = label(p) + " " + p.title; u.append(b, i < unset.length - 1 ? ", " : ". Place them in Mission Control › Calendar."); });
     unplaced.append(u);
   }
 
@@ -185,12 +205,13 @@ function draw() {
   placed.forEach(p => {
     const st = mins(p.start), l = len(p);
     const e = document.createElement("button"); e.type = "button";
-    e.className = "ev " + p.kind + (isDone(p) ? " dn" : "") + (clash.has(p.id) ? " clash" : "");
+    const pk = parked(p);
+    e.className = "ev " + p.kind + (pk ? " park" : isDone(p) ? " dn" : "") + (clash.has(p.id) ? " clash" : "");
     e.style.top = (st - FIRST * 60) * PX + "px"; e.style.height = Math.max(l * PX, 24) + "px";
-    const b = document.createElement("b"); const t = document.createElement("span"); t.className = "mtag"; t.textContent = label(p); b.append(t, p.title);
-    const i = document.createElement("i"); i.textContent = nice(st) + " to " + nice(st + l);
+    const b = document.createElement("b"); const t = document.createElement("span"); t.className = "mtag"; t.textContent = label(p); b.append(t, pk ? "⏸ " : isDone(p) ? "✓ " : "", p.title);
+    const i = document.createElement("i"); i.textContent = pk ? "Done for today · waiting on " + (pk.waitingOn || "someone") + " · chase " + chaseDay(pk.chaseOn) : nice(st) + " to " + nice(st + l);
     e.append(b); if (l * PX >= 38) e.append(i);
-    e.setAttribute("aria-label", label(p) + " " + p.title + ", " + nice(st) + " to " + nice(st + l));
+    e.setAttribute("aria-label", label(p) + " " + p.title + ", " + nice(st) + " to " + nice(st + l) + (pk ? ", done for today, waiting on " + (pk.waitingOn || "someone") : isDone(p) ? ", done" : ""));
     e.onclick = () => { openId = openId === p.id ? null : p.id; drawSheet(); };
     cal.append(e);
   });
@@ -205,6 +226,8 @@ function drawSheet() {
   const h = document.createElement("h3"); h.textContent = p.title; s.append(h);
   const st = mins(p.start), n = document.createElement("div"); n.className = "note";
   n.textContent = nice(st) + " to " + nice(st + len(p)) + (p.output ? " · Output: " + p.output : ""); s.append(n);
+  const pk = p.kind === "mit" && isDone(p) && waiting.find(w => w.planId === p.id);
+  if (pk) { const w = document.createElement("div"); w.className = "note"; w.style.color = "var(--done)"; w.style.fontWeight = "600"; w.textContent = "⏸ Done for today · waiting on " + (pk.waitingOn || "someone") + " · chase " + chaseDay(pk.chaseOn); s.append(w); }
   if (p.kind === "mit") {
     let at = st;
     p.steps.forEach(x => {

@@ -92,6 +92,26 @@ h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-
 .lit.d span { text-decoration: line-through; color: var(--muted); }
 .ltag { font: 700 .72rem/1 var(--body); text-transform: uppercase; letter-spacing: .06em; color: var(--lit); margin-right: 6px; }
 .empty { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 14px; color: var(--muted); }
+.item.mit.shut { grid-template-columns: auto 1fr; align-items: center; padding: 8px 14px; }
+.item.mit.shut .check { width: 26px; height: 26px; }
+.item.park { background: var(--done-soft); border-color: transparent; }
+.item.park .check { background: var(--done); border-color: var(--done); }
+.item.park .check svg { opacity: 1; }
+.ptag { color: var(--done); font-size: .88rem; font-weight: 600; }
+.tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.mini { font: 600 .85rem var(--body); padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.mini.go { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.mini.ok { background: var(--done-soft); border-color: transparent; color: var(--done); }
+.mini[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding: 10px; border-radius: 10px; background: var(--bg); }
+.form label, .form .lbl { font-size: .85rem; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.form input, .form textarea { font: inherit; font-size: 1rem; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); width: 100%; box-sizing: border-box; }
+.form .row { display: flex; gap: 6px; }
+.form .row input[type="number"] { width: 80px; flex: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.wait { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--done); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 3px; }
+.wait.due { border-color: var(--done); border-left-width: 4px; }
+.wait b { font-weight: 600; }
 .warn { background: #fdecea; color: #a12a12; border-radius: 12px; padding: 12px 14px; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .warn { background: #3a1d1a; color: #f2a59a; } }
 </style>
@@ -113,6 +133,8 @@ h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-
 <script>
 // Work > Today: the day's MITs (with their timed steps) and LITs from Mission Control's day plan,
 // through this app's server (/api/mc/day-plan), so it works from the phone away from the LAN too.
+// Same follow-up flow as Mission Control › Work: "+ Add step", "Done for today, waiting on…" (onto the
+// Waiting list via /api/mc/waiting with a chase date), Chase today, and done MITs shut and drop to the bottom.
 const TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const z = n => String(n).padStart(2, "0");
 const iso = d => d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
@@ -134,66 +156,192 @@ function keep(p) {
   }).catch(() => { saved.textContent = "Couldn't reach Mission Control, so that tick didn't save. Try again in a moment."; });
 }
 
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const plus = n => { const d = new Date(today); d.setDate(d.getDate() + n); return iso(d); };
+const nextMon = () => { const d = new Date(today); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return iso(d); };
+const shortDay = k => { if (k === iso(today)) return "today"; if (k === plus(1)) return "tomorrow"; const d = new Date(k + "T12:00"); return DAYS[d.getDay()] + " " + d.getDate() + "/" + (d.getMonth() + 1); };
+const isDone = m => !!m.done || (m.steps.length > 0 && m.steps.every(s => s.done));
+let waiting = [], openForm = null;
+
+async function call(path, method, body) {
+  const r = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "Couldn't reach Mission Control");
+  return d;
+}
+function say(t) { saved.textContent = t; }
+
 async function load() {
   const k = iso(sel);
   document.getElementById("dayname").textContent = +sel === +today ? "Today" : sel.toLocaleDateString(undefined, { weekday: "long" });
   document.getElementById("daydate").textContent = sel.toLocaleDateString(undefined, { day: "numeric", month: "long" });
   list.innerHTML = '<div class="empty">Loading…</div>';
   try {
-    const r = await fetch("api/mc/day-plan?from=" + k + "&to=" + k);
+    const [r, w] = await Promise.all([fetch("api/mc/day-plan?from=" + k + "&to=" + k), fetch("api/mc/waiting").catch(() => null)]);
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "error");
     items = d.items || [];
+    waiting = w && w.ok ? ((await w.json()).items || []) : [];
     draw();
   } catch (e) {
     list.innerHTML = '<div class="warn">Couldn\'t reach Mission Control. Check it\'s running, then come back to this page.</div>';
   }
 }
 
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const btn = (txt, cls, fn) => { const b = el("button", "mini" + (cls ? " " + cls : ""), txt); b.type = "button"; b.onclick = fn; return b; };
+
+// "+ Add step": text and minutes, saved onto the MIT
+function stepForm(m) {
+  const f = el("div", "form"), row = el("div", "row");
+  const t = el("input"); t.placeholder = "Next step"; t.setAttribute("aria-label", "Step");
+  const n = el("input"); n.type = "number"; n.min = "0"; n.value = "15"; n.setAttribute("aria-label", "Minutes");
+  row.append(t, n);
+  const go = btn("Add step", "go", () => {
+    if (!t.value.trim()) return t.focus();
+    m.steps.push({ text: t.value.trim(), min: Math.max(0, +n.value || 0), done: false }); m.done = false;
+    openForm = null; keep(m); draw();
+  });
+  f.append(row, el("div", "tools")); f.lastChild.append(go, btn("Cancel", "", () => { openForm = null; draw(); }));
+  setTimeout(() => t.focus(), 0);
+  return f;
+}
+
+// "Done for today, waiting on…": who, when to chase, an optional next step. Goes on the Waiting list.
+function parkForm(m) {
+  const f = el("div", "form");
+  const who = el("input"); who.placeholder = "e.g. Toni, the bank, Birch & Co";
+  const l1 = el("label", "", "Waiting on"); l1.append(who);
+  let chase = plus(1);
+  const chips = el("div", "chips"), date = el("input"); date.type = "date"; date.value = chase;
+  const opts = [["Tomorrow", plus(1)], ["2 days", plus(2)], ["3 days", plus(3)], ["Next Mon", nextMon()]];
+  const mark = () => chips.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", String(opts[i][1] === chase)));
+  opts.forEach(([t, k]) => chips.append(btn(t, "", () => { chase = k; date.value = k; mark(); })));
+  date.onchange = () => { chase = date.value; mark(); };
+  const l2 = el("div", "lbl", "Chase on"); l2.setAttribute("role", "group"); date.setAttribute("aria-label", "Chase date"); l2.append(chips, date); mark();
+  const nx = el("input"); nx.placeholder = "e.g. Chase Toni for the signed lease";
+  const l3 = el("label", "", "Next step when it comes back (optional)"); l3.append(nx);
+  const note = el("textarea"); note.rows = 2;
+  const l4 = el("label", "", "Note (optional)"); l4.append(note);
+  const go = btn("⏸ Park it", "go", async () => {
+    if (!who.value.trim()) return who.focus();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(chase)) return date.focus();
+    const steps = m.steps.filter(s => !s.done).map(s => ({ text: s.text, min: s.min }));
+    if (nx.value.trim()) steps.push({ text: nx.value.trim(), min: 15 });
+    go.disabled = true;
+    try {
+      await call("api/mc/waiting", "POST", { title: m.title, waitingOn: who.value.trim(), chaseOn: chase, planId: m.id, taskId: m.taskId, note: note.value.trim(), steps });
+      await call("api/mc/day-plan", "PATCH", { id: m.id, done: true });
+      openForm = null; say("Done for today. Chase " + shortDay(chase) + ".");
+      load();
+    } catch (e) { go.disabled = false; say("Not saved: " + e.message); }
+  });
+  const row = el("div", "tools"); row.append(go, btn("Cancel", "", () => { openForm = null; draw(); }));
+  f.append(l1, l2, l3, l4, row);
+  setTimeout(() => who.focus(), 0);
+  return f;
+}
+
+// Back from waiting: today's MIT or LIT again (closing the waiting item), or just close it
+async function bringBack(w, kind) {
+  try {
+    if (kind) await call("api/mc/day-plan", "POST", { day: iso(today), kind, title: w.title, taskId: w.taskId,
+      steps: kind === "lit" ? [{ text: w.title, min: 15 }] : w.steps });
+    await call("api/mc/waiting", "PATCH", { id: w.id, closed: true });
+    say(kind ? "Back on today's list as a" + (kind === "mit" ? "n MIT." : " LIT.") : "Closed.");
+    load();
+  } catch (e) { say("Not saved: " + e.message); }
+}
+
+function waitCard(w, due) {
+  const c = el("div", "wait" + (due ? " due" : ""));
+  const t = el("b", "", w.title); c.append(t);
+  c.append(el("div", "note", "Waiting on " + (w.waitingOn || "someone") + " · chase " + shortDay(w.chaseOn) + (w.chases ? " · chased " + w.chases + "×" : "")));
+  if (w.note) c.append(el("div", "note", w.note));
+  if (due) {
+    const tl = el("div", "tools");
+    tl.append(
+      btn("Chased · still waiting", "", () => { openForm = openForm === "c" + w.id ? null : "c" + w.id; draw(); }),
+      btn("Back · make it an MIT", "ok", () => bringBack(w, "mit")),
+      btn("Make it a LIT", "", () => bringBack(w, "lit")),
+      btn("Close", "", () => bringBack(w, null)));
+    c.append(tl);
+    if (openForm === "c" + w.id) {
+      const f = el("div", "form"), chips = el("div", "chips");
+      [["Tomorrow", plus(1)], ["2 days", plus(2)], ["3 days", plus(3)], ["Next Mon", nextMon()]].forEach(([tx, k]) => chips.append(btn(tx, "", async () => {
+        try { await call("api/mc/waiting", "PATCH", { id: w.id, chased: true, chaseOn: k }); openForm = null; say("Chase again " + shortDay(k) + "."); load(); }
+        catch (e) { say("Not saved: " + e.message); }
+      })));
+      const l = el("div", "lbl", "Chase again on"); l.setAttribute("role", "group"); l.append(chips); f.append(l); c.append(f);
+    }
+  }
+  return c;
+}
+
 function draw() {
   list.innerHTML = "";
+  const isToday = +sel === +today, k = iso(today);
+  // Done MITs drop to the bottom and shut to one line; open ones in start-time order
   const mits = items.filter(i => i.kind === "mit").sort((a, b) => (a.start || "99").localeCompare(b.start || "99"));
+  const order = [...mits].sort((a, b) => Number(isDone(a)) - Number(isDone(b)) || (a.start || "99").localeCompare(b.start || "99"));
   const lits = items.filter(i => i.kind === "lit");
-  const h = document.createElement("h3"); h.textContent = "MITs"; list.append(h);
-  if (!mits.length) { const e = document.createElement("div"); e.className = "empty"; e.textContent = "No MITs for this day. Plan them in Mission Control with Make it an MIT."; list.append(e); }
-  mits.forEach((m, i) => {
-    const done = m.steps.length ? m.steps.every(s => s.done) : m.done, part = !done && m.steps.some(s => s.done);
-    const row = document.createElement("div"); row.className = "item mit" + (done ? " is-done" : part ? " is-part" : "");
-    const cb = document.createElement("button"); cb.type = "button"; cb.className = "check"; cb.innerHTML = TICK;
+  const parkedBy = id => waiting.find(w => w.planId === id);
+
+  if (isToday) {
+    const due = waiting.filter(w => w.chaseOn <= k);
+    if (due.length) { list.append(el("h3", "", "Chase today · " + due.length)); due.forEach(w => list.append(waitCard(w, true))); }
+  }
+
+  list.append(el("h3", "", "MITs"));
+  if (!mits.length) list.append(el("div", "empty", "No MITs for this day. Plan them in Mission Control with Make it an MIT."));
+  order.forEach(m => {
+    const i = mits.indexOf(m), done = isDone(m), part = !done && m.steps.some(s => s.done), park = done && parkedBy(m.id);
+    const row = el("div", "item mit" + (park ? " park shut" : done ? " is-done shut" : part ? " is-part" : ""));
+    const cb = el("button", "check"); cb.type = "button"; cb.innerHTML = TICK;
     cb.setAttribute("role", "checkbox"); cb.setAttribute("aria-checked", done ? "true" : part ? "mixed" : "false"); cb.setAttribute("aria-label", "MIT " + (i + 1) + " done: " + m.title);
     cb.onclick = () => { const all = !done; m.steps.forEach(s => (s.done = all)); m.done = all; keep(m); draw(); };
-    const body = document.createElement("div"); body.className = "body";
-    const nm = document.createElement("div"); nm.className = "name";
-    const tg = document.createElement("span"); tg.className = "mtag"; tg.textContent = "MIT " + (i + 1); nm.append(tg, m.title); body.append(nm);
-    const n = document.createElement("div"); n.className = "note";
-    n.textContent = (m.start ? nice(mins(m.start)) + " · " : "") + hm(block(m.steps)) + (m.output ? " · Output: " + m.output : "");
-    body.append(n);
+    const body = el("div", "body");
+    const nm = el("div", "name"); nm.append(el("span", "mtag", "MIT " + (i + 1)), m.title); body.append(nm);
+    if (park) {
+      body.append(el("div", "ptag", "⏸ Done for today · waiting on " + (park.waitingOn || "someone") + " · chase " + shortDay(park.chaseOn)));
+      row.append(cb, body); list.append(row); return;
+    }
+    if (done) { row.append(cb, body); list.append(row); return; }
+    body.append(el("div", "note", (m.start ? nice(mins(m.start)) + " · " : "") + hm(block(m.steps)) + (m.output ? " · Output: " + m.output : "")));
     let at = m.start ? mins(m.start) : null;
     m.steps.forEach(s => {
-      const r = document.createElement("label"); r.className = "sstep" + (s.done ? " d" : "");
-      const c = document.createElement("input"); c.type = "checkbox"; c.checked = !!s.done;
+      const r = el("label", "sstep" + (s.done ? " d" : ""));
+      const c = el("input"); c.type = "checkbox"; c.checked = !!s.done;
       c.onchange = () => { s.done = c.checked; m.done = m.steps.every(x => x.done); keep(m); draw(); };
-      const tx = document.createElement("span"); tx.textContent = s.text;
-      const tm = document.createElement("em"); tm.textContent = at === null ? s.min + " min" : nice(at);
-      r.append(c, tx, tm); body.append(r); if (at !== null) at += +s.min || 0;
+      r.append(c, el("span", "", s.text), el("em", "", at === null ? s.min + " min" : nice(at)));
+      body.append(r); if (at !== null) at += +s.min || 0;
     });
+    const tl = el("div", "tools");
+    tl.append(btn("+ Add step", "", () => { openForm = openForm === "s" + m.id ? null : "s" + m.id; draw(); }),
+      btn("⏸ Done for today, waiting on…", "ok", () => { openForm = openForm === "p" + m.id ? null : "p" + m.id; draw(); }));
+    body.append(tl);
+    if (openForm === "s" + m.id) body.append(stepForm(m));
+    if (openForm === "p" + m.id) body.append(parkForm(m));
     row.append(cb, body); list.append(row);
   });
   if (lits.length) {
-    const h2 = document.createElement("h3"); h2.textContent = "LITs · " + lits.filter(l => l.done).length + " of " + lits.length + " done"; list.append(h2);
+    list.append(el("h3", "", "LITs · " + lits.filter(l => l.done).length + " of " + lits.length + " done"));
     lits.forEach(l => {
-      const r = document.createElement("label"); r.className = "lit" + (l.done ? " d" : "");
-      const c = document.createElement("input"); c.type = "checkbox"; c.checked = !!l.done;
+      const r = el("label", "lit" + (l.done ? " d" : ""));
+      const c = el("input"); c.type = "checkbox"; c.checked = !!l.done;
       c.onchange = () => { l.done = c.checked; keep(l); draw(); };
-      const tx = document.createElement("span"); const t = document.createElement("b"); t.className = "ltag"; t.textContent = "LIT";
-      tx.append(t, l.title); r.append(c, tx); list.append(r);
+      const tx = el("span"); tx.append(el("b", "ltag", "LIT"), l.title); r.append(c, tx); list.append(r);
     });
+  }
+  if (isToday) {
+    const later = waiting.filter(w => w.chaseOn > k);
+    if (later.length) { list.append(el("h3", "", "Waiting on others · " + later.length)); later.forEach(w => list.append(waitCard(w, false))); }
   }
 }
 
-document.getElementById("prev").onclick = () => { sel.setDate(sel.getDate() - 1); load(); };
-document.getElementById("next").onclick = () => { sel.setDate(sel.getDate() + 1); load(); };
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") load(); });
+document.getElementById("prev").onclick = () => { sel.setDate(sel.getDate() - 1); openForm = null; load(); };
+document.getElementById("next").onclick = () => { sel.setDate(sel.getDate() + 1); openForm = null; load(); };
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !openForm) load(); });
 load();
 </script>
 <script src="nav.js?v=5"></script>
