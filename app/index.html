@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en-AU"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Workout">
+<meta name="theme-color" content="#0d7480">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}*,*::before,*::after{box-sizing:border-box}[hidden]{display:none!important}</style>
+<title>Morty's Morning Workout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column, day picker strip on top, today's session as a checklist of exercise rows */
+:root {
+  --bg: #eef3f4; --surface: #ffffff; --ink: #13222b; --muted: #5a6b74; --line: #d5dfe3;
+  --accent: #0d7480; --accent-soft: #d6ecee; --done: #2f7d4f; --done-soft: #dcefe3;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f181d; --surface: #172329; --ink: #e4eef1; --muted: #93a6ae; --line: #2a3a42;
+  --accent: #4fc0cb; --accent-soft: #173c42; --done: #6fcf97; --done-soft: #1b3a29; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f181d; --surface: #172329; --ink: #e4eef1; --muted: #93a6ae; --line: #2a3a42;
+  --accent: #4fc0cb; --accent-soft: #173c42; --done: #6fcf97; --done-soft: #1b3a29; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font: 16px/1.45 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; }
+.wrap { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 4px 0 0; font-size: .95rem; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day { font: 600 .95rem var(--display); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 0 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.day .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.day.part .dot { background: var(--accent); }
+.day.full .dot { background: var(--done); }
+.day[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.day[aria-pressed="true"] .dot { background: var(--surface); }
+.day:focus-visible, .check:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+.head h2 { font: 700 1.5rem/1.1 var(--display); margin: 0; }
+.head .meta { color: var(--muted); font-size: .9rem; }
+.bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--done); width: 0; transition: width .3s; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group h3 { font: 600 .8rem var(--body); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 6px 0 0; }
+.item { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.item.is-done { background: var(--done-soft); border-color: transparent; }
+.item.is-done .name { text-decoration: line-through; text-decoration-color: var(--done); }
+.check { width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--accent); background: transparent; cursor: pointer;
+  display: grid; place-items: center; padding: 0; color: var(--surface); }
+.item.is-done .check { background: var(--done); border-color: var(--done); }
+.check svg { width: 18px; height: 18px; opacity: 0; }
+.item.is-done .check svg { opacity: 1; }
+.body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.name { font-weight: 600; font-size: 1.05rem; }
+.dose { font: 600 1rem var(--display); letter-spacing: .03em; color: var(--accent); font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: .9rem; }
+.vids { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.vid { display: inline-flex; align-items: center; gap: 5px; font-size: .85rem; font-weight: 600; color: var(--accent);
+  background: var(--accent-soft); border-radius: 99px; padding: 4px 10px; text-decoration: none; }
+.vid svg { width: 12px; height: 12px; fill: currentColor; }
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: .85rem; }
+.reset { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 6px 12px; font: inherit; cursor: pointer; }
+.cheer { background: var(--done-soft); color: var(--done); border-radius: 12px; padding: 12px 14px; font-weight: 600; }
+.lens { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.lens button { font: 600 1rem var(--display); letter-spacing: .04em; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 10px 0; cursor: pointer; }
+.lens button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.tabs a { display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px 2px; border-radius: 9px; font: 600 .85rem/1.1 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+.tabs a[aria-current="page"] { background: var(--accent); color: var(--surface); }
+@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+</style>
+
+</head><body>
+<div class="wrap">
+  <header>
+    <h1>Morning Workout</h1>
+    <p class="sub" id="dateline">Visible abs by October 2027</p>
+  </header>
+  <nav class="tabs" aria-label="Pages"><a href="routine.html">Disciplines</a><a href="./">Workout</a><a href="soon.html#reading">Reading</a><a href="performance.html">Performance</a></nav>
+  <nav class="days" id="days" aria-label="Choose a day"></nav>
+  <div class="lens" id="lens" role="group" aria-label="How much time do you have?"></div>
+  <section class="head">
+    <div><h2 id="title"></h2><div class="meta" id="meta"></div></div>
+    <div class="meta" id="count"></div>
+  </section>
+  <div class="bar" aria-hidden="true"><span id="bar"></span></div>
+  <div id="cheer" class="cheer" hidden>All done for today. Good work.</div>
+  <main id="list" class="wrap" style="gap:14px"></main>
+  <div class="foot"><span id="saved">Ticks are saved for today's date.</span><button class="reset" id="reset" type="button">Clear today's ticks</button></div>
+</div>
+
+<script src="habits.js?v=2"></script>
+<script src="plan.js?v=1"></script>
+<script>
+const PLAY = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z"/></svg>';
+const TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+function isoDate(d) { const z = n => String(n).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); }
+function weekDates() { // Monday-based dates for the current week
+  const t = new Date(); const dow = (t.getDay() + 6) % 7; const mon = new Date(t); mon.setDate(t.getDate() - dow);
+  return PLAN.map((_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; });
+}
+const DATES = weekDates();
+const todayIdx = (new Date().getDay() + 6) % 7;
+let sel = todayIdx;
+const ticks = {}; // date -> {id: true}
+let store = null; // {get(date), set(date, obj)}
+
+const local = {
+  get(date) { try { return JSON.parse(localStorage.getItem("ticks:" + date) || "{}"); } catch { return {}; } },
+  set(date, obj) { try { localStorage.setItem("ticks:" + date, JSON.stringify(obj)); } catch {} }
+};
+
+function lenAt(i) { return lenOf(ticks[isoDate(DATES[i])]); }
+function groupsOf(i) { return sessionOf(PLAN[i].key, lenAt(i)).map(([g, xs]) => [g, xs.map(([id, dose]) => Object.assign({ id, dose }, EX[id]))]); }
+function itemsOf(i) { return groupsOf(i).flatMap(g => g[1]); }
+function countDone(i) { const t = ticks[isoDate(DATES[i])] || {}; return itemsOf(i).filter(it => t[it.id]).length; }
+
+function renderDays() {
+  const nav = document.getElementById("days"); nav.textContent = "";
+  PLAN.forEach((p, i) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "day";
+    const n = countDone(i), tot = itemsOf(i).length;
+    if (n && n >= tot) b.classList.add("full"); else if (n) b.classList.add("part");
+    b.setAttribute("aria-pressed", String(i === sel));
+    b.setAttribute("aria-label", p.title + ", " + DATES[i].toDateString() + ", " + n + " of " + tot + " done");
+    b.innerHTML = '<span>' + p.label + '</span><span class="dot"></span>';
+    b.onclick = () => { sel = i; render(); };
+    nav.appendChild(b);
+  });
+}
+
+function render() {
+  renderDays();
+  const p = PLAN[sel], date = isoDate(DATES[sel]), t = ticks[date] || {};
+  document.getElementById("title").textContent = p.title;
+  const len = lenAt(sel);
+  const lens = document.getElementById("lens"); lens.textContent = "";
+  LENGTHS.forEach(m => { const b = document.createElement("button"); b.type = "button"; b.textContent = m + " min";
+    b.setAttribute("aria-pressed", String(m === len)); b.onclick = () => setLen(date, m); lens.appendChild(b); });
+  document.getElementById("meta").textContent = len + " min version · " + DATES[sel].toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" }) + (sel === todayIdx ? " (today)" : "");
+  const items = itemsOf(sel), n = items.filter(it => t[it.id]).length;
+  document.getElementById("count").textContent = n + " of " + items.length + " done";
+  document.getElementById("bar").style.width = (items.length ? 100 * n / items.length : 0) + "%";
+  document.getElementById("cheer").hidden = !(n && n === items.length);
+  const list = document.getElementById("list"); list.textContent = "";
+  groupsOf(sel).forEach(([gname, its]) => {
+    const g = document.createElement("section"); g.className = "group";
+    const h = document.createElement("h3"); h.textContent = gname; g.appendChild(h);
+    its.forEach(it => {
+      const row = document.createElement("div"); row.className = "item" + (t[it.id] ? " is-done" : "");
+      const cb = document.createElement("button"); cb.type = "button"; cb.className = "check"; cb.innerHTML = TICK;
+      cb.setAttribute("role", "checkbox"); cb.setAttribute("aria-checked", String(!!t[it.id])); cb.setAttribute("aria-label", "Done: " + it.name);
+      cb.onclick = () => toggle(date, it.id);
+      const body = document.createElement("div"); body.className = "body";
+      const name = document.createElement("div"); name.className = "name"; name.textContent = it.name;
+      const dose = document.createElement("div"); dose.className = "dose"; dose.textContent = it.dose;
+      body.append(name, dose);
+      if (it.note) { const nt = document.createElement("div"); nt.className = "note"; nt.textContent = it.note; body.appendChild(nt); }
+      if (it.vids.length) {
+        const vw = document.createElement("div"); vw.className = "vids";
+        it.vids.forEach(([label, url]) => { const a = document.createElement("a"); a.className = "vid"; a.href = url; a.target = "_blank"; a.rel = "noopener";
+          a.innerHTML = PLAY; a.append(label === "Watch" ? "Watch video" : label); vw.appendChild(a); });
+        body.appendChild(vw);
+      }
+      row.append(cb, body); g.appendChild(row);
+    });
+    list.appendChild(g);
+  });
+}
+
+function toggle(date, id) {
+  const t = Object.assign({}, ticks[date] || {});
+  if (t[id]) delete t[id]; else t[id] = true;
+  ticks[date] = t; render(); save(date);
+}
+// Switching length keeps the ticks, since exercises keep their ids across versions.
+function setLen(date, m) { ticks[date] = Object.assign({}, ticks[date] || {}, { len: m }); render(); save(date); }
+// Saves go to the NAS one at a time, each sending the latest state, so a slow earlier save
+// can't land last and wipe out later ticks. Days changed here aren't replaced by the NAS copy on load.
+const changed = new Set();
+let saving = Promise.resolve();
+function save(date) {
+  changed.add(date);
+  local.set(date, ticks[date]);
+  if (!store) return;
+  saving = saving.then(() => store.set(date, ticks[date])).catch(() => {
+    document.getElementById("saved").textContent = "Couldn't sync this tick. It's kept on this device.";
+  });
+}
+document.getElementById("reset").onclick = () => { const d = isoDate(DATES[sel]); ticks[d] = { len: lenAt(sel) }; render(); save(d); };
+
+DATES.forEach(d => { const k = isoDate(d); ticks[k] = local.get(k); });
+render();
+
+(async () => {
+  try {
+    store = { set: async (date, obj) => {
+      const r = await fetch("api/ticks/" + date, { method: "PUT", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) });
+      if (!r.ok) throw new Error("save failed");
+    } };
+    await Promise.all(DATES.map(async d => {
+      const k = isoDate(d);
+      try { const r = await fetch("api/ticks/" + k); if (r.ok) { const v = await r.json(); if (!changed.has(k)) { ticks[k] = v; local.set(k, v); } } } catch {}
+    }));
+    document.getElementById("saved").textContent = "Ticks are saved on your NAS, so they show on your phone and computer.";
+    render();
+  } catch {}
+})();
+</script>
+<script src="nav.js?v=5"></script>
+</body></html>
