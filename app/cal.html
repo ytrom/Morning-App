@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en-AU"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Workout">
+<meta name="theme-color" content="#0d7480">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}*,*::before,*::after{box-sizing:border-box}[hidden]{display:none!important}</style>
+<title>Morty's Calendar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column, day picker strip on top, today's session as a checklist of exercise rows */
+:root {
+  --bg: #eef3f4; --surface: #ffffff; --ink: #13222b; --muted: #5a6b74; --line: #d5dfe3;
+  --accent: #0d7480; --accent-soft: #d6ecee; --done: #2f7d4f; --done-soft: #dcefe3;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f181d; --surface: #172329; --ink: #e4eef1; --muted: #93a6ae; --line: #2a3a42;
+  --accent: #4fc0cb; --accent-soft: #173c42; --done: #6fcf97; --done-soft: #1b3a29; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f181d; --surface: #172329; --ink: #e4eef1; --muted: #93a6ae; --line: #2a3a42;
+  --accent: #4fc0cb; --accent-soft: #173c42; --done: #6fcf97; --done-soft: #1b3a29; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font: 16px/1.45 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; }
+.wrap { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 4px 0 0; font-size: .95rem; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day { font: 600 .95rem var(--display); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 0 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.day .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.day.part .dot { background: var(--accent); }
+.day.full .dot { background: var(--done); }
+.day[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.day[aria-pressed="true"] .dot { background: var(--surface); }
+.day:focus-visible, .check:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+.head h2 { font: 700 1.5rem/1.1 var(--display); margin: 0; }
+.head .meta { color: var(--muted); font-size: .9rem; }
+.bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--done); width: 0; transition: width .3s; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group h3 { font: 600 .8rem var(--body); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 6px 0 0; }
+.item { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.item.is-done { background: var(--done-soft); border-color: transparent; }
+.item.is-done .name { text-decoration: line-through; text-decoration-color: var(--done); }
+.check { width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--accent); background: transparent; cursor: pointer;
+  display: grid; place-items: center; padding: 0; color: var(--surface); }
+.item.is-done .check { background: var(--done); border-color: var(--done); }
+.check svg { width: 18px; height: 18px; opacity: 0; }
+.item.is-done .check svg { opacity: 1; }
+.body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.name { font-weight: 600; font-size: 1.05rem; }
+.dose { font: 600 1rem var(--display); letter-spacing: .03em; color: var(--accent); font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: .9rem; }
+.vids { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.vid { display: inline-flex; align-items: center; gap: 5px; font-size: .85rem; font-weight: 600; color: var(--accent);
+  background: var(--accent-soft); border-radius: 99px; padding: 4px 10px; text-decoration: none; }
+.vid svg { width: 12px; height: 12px; fill: currentColor; }
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: .85rem; }
+.reset { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 6px 12px; font: inherit; cursor: pointer; }
+.cheer { background: var(--done-soft); color: var(--done); border-radius: 12px; padding: 12px 14px; font-weight: 600; }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.tabs a { display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px 2px; border-radius: 9px; font: 600 .85rem/1.1 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+.tabs a[aria-current="page"] { background: var(--accent); color: var(--surface); }
+@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+</style>
+<style>
+:root { --mit: #a8650a; --mit-soft: #fbecd4; --lit: #5b5b9a; --lit-soft: #e9e9f5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --mit: #f0b35a; --mit-soft: #3a2a12; --lit: #a9a9e6; --lit-soft: #26263f; } }
+:root[data-theme="dark"] { --mit: #f0b35a; --mit-soft: #3a2a12; --lit: #a9a9e6; --lit-soft: #26263f; }
+.date-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.date-row h2 { font: 700 1.5rem/1.1 var(--display); margin: 0; text-align: center; flex: 1; }
+.date-row .meta { display: block; color: var(--muted); font: 400 .9rem var(--body); margin-top: 2px; }
+.step { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 1.2rem; cursor: pointer; }
+.cal { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.cal .hr { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); }
+.cal .hr span { position: absolute; left: 8px; top: -.6em; background: var(--surface); padding: 0 4px; font: 600 .72rem var(--body); color: var(--muted); font-variant-numeric: tabular-nums; }
+.cal .ev { position: absolute; left: 62px; right: 8px; border-radius: 8px; padding: 4px 8px; overflow: hidden; font: inherit; font-size: .85rem; line-height: 1.25; border: 0; border-left: 4px solid; text-align: left; color: var(--ink); cursor: pointer; }
+.cal .ev b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal .ev i { font-style: normal; color: var(--muted); font-size: .78rem; }
+.cal .ev.mit { background: var(--mit-soft); border-color: var(--mit); }
+.cal .ev.lit { background: var(--lit-soft); border-color: var(--lit); }
+.cal .ev.dn { opacity: .55; }
+.cal .ev.dn b { text-decoration: line-through; }
+.cal .ev.clash { outline: 2px solid #c0392b; }
+.cal .now { position: absolute; left: 56px; right: 0; border-top: 2px solid #c0392b; z-index: 3; }
+.cal .now::before { content: ""; position: absolute; left: -5px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: #c0392b; }
+.mtag { font: 700 .7rem/1 var(--body); text-transform: uppercase; letter-spacing: .06em; margin-right: 5px; }
+.ev.mit .mtag { color: var(--mit); } .ev.lit .mtag { color: var(--lit); }
+.sheet { background: var(--surface); border: 2px solid var(--accent); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.sheet h3 { margin: 0; font: 700 1.15rem var(--display); text-transform: none; letter-spacing: 0; color: var(--ink); }
+.sstep { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; font-size: .95rem; padding: 3px 0; cursor: pointer; }
+.sstep input { width: 20px; height: 20px; accent-color: var(--done); margin: 0; }
+.sstep em { font-style: normal; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .85rem; }
+.sstep.d span { text-decoration: line-through; color: var(--muted); }
+.btn { font: 600 .9rem var(--body); padding: 8px 12px; border-radius: 8px; border: 0; background: var(--accent-soft); color: var(--accent); cursor: pointer; }
+.unplaced { background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; padding: 10px 14px; font-size: .92rem; color: var(--muted); }
+.unplaced b { color: var(--ink); }
+.warn { background: #fdecea; color: #a12a12; border-radius: 12px; padding: 12px 14px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .warn { background: #3a1d1a; color: #f2a59a; } }
+</style>
+</head><body>
+<div class="wrap">
+  <header>
+    <h1>Calendar</h1>
+    <p class="sub">Your MIT and LIT blocks, placed in Mission Control</p>
+  </header>
+  <nav class="tabs" aria-label="Pages"><a href="work.html">Today</a><a href="cal.html">Calendar</a><a href="performance.html">Performance</a></nav>
+  <section class="date-row">
+    <button class="step" id="prev" type="button" aria-label="Previous day">&#8249;</button>
+    <h2><span id="dayname"></span><span class="meta" id="daydate"></span></h2>
+    <button class="step" id="next" type="button" aria-label="Next day">&#8250;</button>
+  </section>
+  <div id="sheet" aria-live="polite"></div>
+  <div id="unplaced"></div>
+  <div class="cal" id="cal"></div>
+  <div class="foot"><span id="saved">Place and move blocks in Mission Control › Calendar. Ticks here save back to it.</span></div>
+</div>
+<script>
+// Work > Calendar: the day's MIT and LIT blocks from Mission Control's day plan, on a 5am-10pm timeline.
+// Read through this app's server (/api/mc/day-plan). Tapping a block shows its steps to tick.
+const FIRST = 5, LAST = 22, PX = 1.0;
+const z = n => String(n).padStart(2, "0");
+const iso = d => d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
+const mins = t => { const [a, b] = t.split(":").map(Number); return a * 60 + (b || 0); };
+const nice = m => (Math.floor(m / 60) % 12 || 12) + ":" + z(m % 60) + (m < 720 ? "am" : "pm");
+const has = s => typeof s === "string" && /^\d{2}:\d{2}$/.test(s);
+const len = p => p.kind === "mit" ? Math.ceil(p.steps.reduce((a, s) => a + (+s.min || 0), 0) * 1.15 / 5) * 5 : (+(p.steps[0] || {}).min || 30);
+const isDone = p => p.kind === "mit" && p.steps.length ? p.steps.every(s => s.done) : !!p.done;
+const today = new Date(); today.setHours(12, 0, 0, 0);
+let sel = new Date(today), items = [], openId = null;
+const cal = document.getElementById("cal"), sheet = document.getElementById("sheet"), unplaced = document.getElementById("unplaced"), saved = document.getElementById("saved");
+
+let saving = Promise.resolve();
+function keep(p) {
+  saving = saving.then(async () => {
+    const r = await fetch("api/mc/day-plan", { method: "PATCH", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id, steps: p.steps, done: p.done }) });
+    if (!r.ok) throw 0;
+    saved.textContent = "Saved to Mission Control.";
+  }).catch(() => { saved.textContent = "Couldn't reach Mission Control, so that tick didn't save. Try again in a moment."; });
+}
+
+async function load() {
+  const k = iso(sel);
+  document.getElementById("dayname").textContent = +sel === +today ? "Today" : sel.toLocaleDateString(undefined, { weekday: "long" });
+  document.getElementById("daydate").textContent = sel.toLocaleDateString(undefined, { day: "numeric", month: "long" });
+  try {
+    const r = await fetch("api/mc/day-plan?from=" + k + "&to=" + k);
+    const d = await r.json();
+    if (!r.ok) throw 0;
+    items = d.items || [];
+  } catch { items = []; cal.innerHTML = ""; sheet.innerHTML = ""; unplaced.innerHTML = '<div class="warn">Couldn\'t reach Mission Control. Check it\'s running, then come back to this page.</div>'; return; }
+  draw();
+}
+
+function draw() {
+  const mits = items.filter(i => i.kind === "mit");
+  const label = p => p.kind === "mit" ? "MIT " + (mits.indexOf(p) + 1) : "LIT";
+  const placed = items.filter(i => has(i.start)).sort((a, b) => mins(a.start) - mins(b.start));
+  const waiting = items.filter(i => !has(i.start));
+  const clash = new Set();
+  placed.forEach((a, i) => placed.slice(i + 1).forEach(b => { if (mins(b.start) < mins(a.start) + len(a)) { clash.add(a.id); clash.add(b.id); } }));
+
+  unplaced.innerHTML = "";
+  if (!items.length) unplaced.innerHTML = '<div class="unplaced">Nothing planned for this day yet. Plan MITs and LITs in Mission Control.</div>';
+  else if (waiting.length) {
+    const u = document.createElement("div"); u.className = "unplaced";
+    u.append("Not on the calendar yet: ");
+    waiting.forEach((p, i) => { const b = document.createElement("b"); b.textContent = label(p) + " " + p.title; u.append(b, i < waiting.length - 1 ? ", " : ". Place them in Mission Control › Calendar."); });
+    unplaced.append(u);
+  }
+
+  cal.innerHTML = ""; cal.style.height = (LAST - FIRST) * 60 * PX + "px";
+  for (let h = FIRST; h <= LAST; h++) { const d = document.createElement("div"); d.className = "hr"; d.style.top = (h - FIRST) * 60 * PX + "px"; const s = document.createElement("span"); s.textContent = nice(h * 60); d.append(s); cal.append(d); }
+  const nowD = new Date(), nowM = nowD.getHours() * 60 + nowD.getMinutes();
+  if (+sel === +today && nowM > FIRST * 60 && nowM < LAST * 60) { const n = document.createElement("div"); n.className = "now"; n.style.top = (nowM - FIRST * 60) * PX + "px"; cal.append(n); }
+  placed.forEach(p => {
+    const st = mins(p.start), l = len(p);
+    const e = document.createElement("button"); e.type = "button";
+    e.className = "ev " + p.kind + (isDone(p) ? " dn" : "") + (clash.has(p.id) ? " clash" : "");
+    e.style.top = (st - FIRST * 60) * PX + "px"; e.style.height = Math.max(l * PX, 24) + "px";
+    const b = document.createElement("b"); const t = document.createElement("span"); t.className = "mtag"; t.textContent = label(p); b.append(t, p.title);
+    const i = document.createElement("i"); i.textContent = nice(st) + " to " + nice(st + l);
+    e.append(b); if (l * PX >= 38) e.append(i);
+    e.setAttribute("aria-label", label(p) + " " + p.title + ", " + nice(st) + " to " + nice(st + l));
+    e.onclick = () => { openId = openId === p.id ? null : p.id; drawSheet(); };
+    cal.append(e);
+  });
+  drawSheet();
+}
+
+// Details of the tapped block, with its steps to tick
+function drawSheet() {
+  sheet.innerHTML = "";
+  const p = items.find(i => i.id === openId); if (!p || !has(p.start)) return;
+  const s = document.createElement("section"); s.className = "sheet";
+  const h = document.createElement("h3"); h.textContent = p.title; s.append(h);
+  const st = mins(p.start), n = document.createElement("div"); n.className = "note";
+  n.textContent = nice(st) + " to " + nice(st + len(p)) + (p.output ? " · Output: " + p.output : ""); s.append(n);
+  if (p.kind === "mit") {
+    let at = st;
+    p.steps.forEach(x => {
+      const r = document.createElement("label"); r.className = "sstep" + (x.done ? " d" : "");
+      const c = document.createElement("input"); c.type = "checkbox"; c.checked = !!x.done;
+      c.onchange = () => { x.done = c.checked; p.done = p.steps.every(y => y.done); keep(p); draw(); };
+      const tx = document.createElement("span"); tx.textContent = x.text; const tm = document.createElement("em"); tm.textContent = nice(at);
+      r.append(c, tx, tm); s.append(r); at += +x.min || 0;
+    });
+  } else {
+    const r = document.createElement("label"); r.className = "sstep" + (p.done ? " d" : "");
+    const c = document.createElement("input"); c.type = "checkbox"; c.checked = !!p.done;
+    c.onchange = () => { p.done = c.checked; keep(p); draw(); };
+    const tx = document.createElement("span"); tx.textContent = "Done"; r.append(c, tx, document.createElement("em")); s.append(r);
+  }
+  const x = document.createElement("button"); x.type = "button"; x.className = "btn"; x.textContent = "Close"; x.style.alignSelf = "flex-start";
+  x.onclick = () => { openId = null; drawSheet(); }; s.append(x);
+  sheet.append(s);
+}
+
+document.getElementById("prev").onclick = () => { sel.setDate(sel.getDate() - 1); openId = null; load(); };
+document.getElementById("next").onclick = () => { sel.setDate(sel.getDate() + 1); openId = null; load(); };
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") load(); });
+load();
+</script>
+<script src="nav.js?v=6"></script>
+</body></html>

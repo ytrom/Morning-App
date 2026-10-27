@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en-AU"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Workout">
+<meta name="theme-color" content="#0d7480">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}*,*::before,*::after{box-sizing:border-box}[hidden]{display:none!important}</style>
+<title>Morty's Performance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column, day picker strip on top, today's session as a checklist of exercise rows */
+:root {
+  --bg: #eef3f4; --surface: #ffffff; --ink: #13222b; --muted: #5a6b74; --line: #d5dfe3;
+  --accent: #0d7480; --accent-soft: #d6ecee; --done: #2f7d4f; --done-soft: #dcefe3;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f181d; --surface: #172329; --ink: #e4eef1; --muted: #93a6ae; --line: #2a3a42;
+  --accent: #4fc0cb; --accent-soft: #173c42; --done: #6fcf97; --done-soft: #1b3a29; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f181d; --surface: #172329; --ink: #e4eef1; --muted: #93a6ae; --line: #2a3a42;
+  --accent: #4fc0cb; --accent-soft: #173c42; --done: #6fcf97; --done-soft: #1b3a29; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font: 16px/1.45 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; }
+.wrap { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 4px 0 0; font-size: .95rem; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day { font: 600 .95rem var(--display); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 0 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.day .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.day.part .dot { background: var(--accent); }
+.day.full .dot { background: var(--done); }
+.day[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.day[aria-pressed="true"] .dot { background: var(--surface); }
+.day:focus-visible, .check:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+.head h2 { font: 700 1.5rem/1.1 var(--display); margin: 0; }
+.head .meta { color: var(--muted); font-size: .9rem; }
+.bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--done); width: 0; transition: width .3s; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group h3 { font: 600 .8rem var(--body); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 6px 0 0; }
+.item { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.item.is-done { background: var(--done-soft); border-color: transparent; }
+.item.is-done .name { text-decoration: line-through; text-decoration-color: var(--done); }
+.check { width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--accent); background: transparent; cursor: pointer;
+  display: grid; place-items: center; padding: 0; color: var(--surface); }
+.item.is-done .check { background: var(--done); border-color: var(--done); }
+.check svg { width: 18px; height: 18px; opacity: 0; }
+.item.is-done .check svg { opacity: 1; }
+.body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.name { font-weight: 600; font-size: 1.05rem; }
+.dose { font: 600 1rem var(--display); letter-spacing: .03em; color: var(--accent); font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: .9rem; }
+.vids { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.vid { display: inline-flex; align-items: center; gap: 5px; font-size: .85rem; font-weight: 600; color: var(--accent);
+  background: var(--accent-soft); border-radius: 99px; padding: 4px 10px; text-decoration: none; }
+.vid svg { width: 12px; height: 12px; fill: currentColor; }
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: .85rem; }
+.reset { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 6px 12px; font: inherit; cursor: pointer; }
+.cheer { background: var(--done-soft); color: var(--done); border-radius: 12px; padding: 12px 14px; font-weight: 600; }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.tabs a { display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px 2px; border-radius: 9px; font: 600 .85rem/1.1 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+.tabs a[aria-current="page"] { background: var(--accent); color: var(--surface); }
+@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+</style>
+
+<style>
+:root { --miss: #c2453d; --miss-soft: #f6dcda; --open: #e3eaec; --part: #e0a800; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --miss: #e57373; --miss-soft: #3a1f1f; --open: #24323a; --part: #e9b949; } }
+:root[data-theme="dark"] { --miss: #e57373; --miss-soft: #3a1f1f; --open: #24323a; --part: #e9b949; }
+.grid { width: 100%; border-collapse: separate; border-spacing: 3px; table-layout: fixed; }
+.grid th, .grid td { padding: 0; }
+.grid col.name { width: auto; } .grid col.d { width: 28px; } .grid col.n { width: 34px; }
+.grid thead th { font: 600 .75rem var(--display); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); text-align: center; padding-bottom: 2px; }
+.grid thead th.today { color: var(--accent); }
+.grid th.hn { text-align: left; font: 600 .88rem/1.15 var(--body); padding-right: 4px; overflow-wrap: anywhere; }
+.grid tr.cat th { text-align: left; font: 600 .75rem var(--body); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); padding: 10px 0 2px; }
+.c { height: 30px; border-radius: 7px; display: grid; place-items: center; color: #fff; }
+.c svg { width: 15px; height: 15px; }
+.c.yes { background: var(--done); }
+.c.no { background: var(--miss); }
+.c.open { background: var(--open); }
+.c.part { background: var(--part); color: #13222b; }
+.c.day { font: 700 .9rem var(--display); font-variant-numeric: tabular-nums; }
+.c.day.open { color: var(--muted); }
+.grid td.n { text-align: right; font: 600 .95rem var(--display); font-variant-numeric: tabular-nums; }
+.grid tfoot td, .grid tfoot th { font: 600 .9rem var(--display); color: var(--muted); text-align: center; padding-top: 6px; font-variant-numeric: tabular-nums; }
+.grid tfoot th { text-align: left; font: 600 .75rem var(--body); text-transform: uppercase; letter-spacing: .1em; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; color: var(--muted); font-size: .85rem; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.lh { font: 700 1.3rem var(--display); margin: 8px 0 -6px; }
+.long { width: 100%; border-collapse: separate; border-spacing: 3px; table-layout: fixed; }
+.long th, .long td { padding: 0; }
+.long col.w { width: 17%; }
+.long thead th { font: 600 .8rem var(--display); letter-spacing: .05em; color: var(--muted); text-align: center; padding-bottom: 2px; }
+.long th.hn { text-align: left; font: 600 .88rem/1.15 var(--body); padding-right: 4px; overflow-wrap: anywhere; }
+.long tr.cat th { text-align: left; font: 600 .75rem var(--body); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); padding: 10px 0 2px; }
+.p { height: 38px; border-radius: 7px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05; color: #fff; font-variant-numeric: tabular-nums; }
+.p b { font: 700 .95rem var(--display); }
+.p small { font: 500 .68rem var(--body); opacity: .9; }
+.p.yes { background: var(--done); }
+.p.part { background: var(--part); color: #13222b; }
+.p.no { background: var(--miss); }
+.p.none { background: var(--open); color: var(--muted); }
+.summary { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font: 600 1.1rem var(--display); letter-spacing: .03em; }
+</style>
+</head><body>
+<div class="wrap">
+  <header>
+    <h1>Performance</h1>
+    <p class="sub">Your habits over the last 7 days</p>
+  </header>
+  <nav class="tabs" aria-label="Pages"><a href="routine.html">Disciplines</a><a href="./">Workout</a><a href="soon.html#reading">Reading</a><a href="performance.html">Performance</a></nav>
+  <div class="summary" id="summary">Loading…</div>
+  <table class="grid" id="grid"></table>
+  <div class="legend"><span><i style="background:var(--done)"></i>Done</span><span><i style="background:var(--part)"></i>Partly done</span><span><i style="background:var(--miss)"></i>Missed</span><span><i style="background:var(--open)"></i>Today, still to do</span></div>
+  <h2 class="lh">Longer view</h2>
+  <p class="note">How often each habit was done over the last 7, 30, 60 and 90 days, not counting today. Green is 80% or more, yellow 50 to 79%, red under 50%.</p>
+  <table class="long" id="long"><tbody><tr><td class="note">Loading…</td></tr></tbody></table>
+  <p class="note" id="longnote"></p>
+  <div class="foot"><span id="saved"></span></div>
+</div>
+<script src="habits.js?v=2"></script>
+<script src="plan.js?v=1"></script>
+<script>
+const TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const CROSS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>';
+function isoDate(d) { const z = n => String(n).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); }
+
+const DAYKEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+
+async function load(kind, k) {
+  try { const r = await fetch("api/" + kind + "/" + k); if (r.ok) return await r.json(); } catch {}
+  try { return JSON.parse(localStorage.getItem(kind + ":" + k) || "{}"); } catch { return {}; }
+}
+
+(async () => {
+  const today = new Date(); today.setHours(12, 0, 0, 0);
+  const dates = [...Array(7)].map((_, i) => { const d = new Date(today); d.setDate(today.getDate() - 6 + i); return d; });
+  const vals = await Promise.all(dates.map(d => load("routine", isoDate(d))));
+  const ticks = await Promise.all(dates.map(d => load("ticks", isoDate(d))));
+  // Workout exercises ticked that day, out of the total for the version (15, 30 or 45 min) chosen that day.
+  const workout = i => { const ids = idsOf(DAYKEYS[dates[i].getDay()], lenOf(ticks[i])); return [ids.filter(id => ticks[i][id]).length, ids.length]; };
+  const last = dates.length - 1;
+  // Some progress toward a number goal (steps, water) counts as partly done.
+  // Exercise program is done when ticked on Habits or when every Workout exercise is ticked, and partly done when some are.
+  const isDoneOn = (it, i) => isDone(it, vals[i]) || (it.id === "program" && workout(i)[0] === workout(i)[1]);
+  const isPart = (it, i) => { const x = vals[i][it.id]; return it.id === "program" ? workout(i)[0] > 0 : it.type === "number" && typeof x === "number" && x > 0 && x < it.goal; };
+  const dayDone = i => ALL.filter(it => isDoneOn(it, i)).length;
+  // Today isn't over, so a habit not done yet today shows grey rather than red.
+  const state = (it, i) => isDoneOn(it, i) ? "yes" : isPart(it, i) ? "part" : i === last ? "open" : "no";
+  // A whole day: all done green, some done yellow, none red (grey for today until something is done).
+  const dayState = i => { const n = dayDone(i); return n === ALL.length ? "yes" : n > 0 || ALL.some(it => isPart(it, i)) ? "part" : i === last ? "open" : "no"; };
+
+  const g = document.getElementById("grid");
+  let html = '<colgroup><col class="name">' + '<col class="d">'.repeat(7) + '<col class="n"></colgroup><thead><tr><th></th>';
+  dates.forEach((d, i) => html += '<th class="' + (i === last ? "today" : "") + '" title="' + d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) + '">' + (i === last ? "Today" : d.toLocaleDateString(undefined, { weekday: "short" }).slice(0, 2)) + "</th>");
+  html += '<th></th></tr></thead><tbody>';
+  let done = 0, possible = 0;
+  HABITS.filter(c => c.items.length).forEach(c => {
+    html += '<tr class="cat"><th colspan="9"></th></tr>';
+    c.items.forEach(it => {
+      html += '<tr><th class="hn" scope="row"></th>';
+      let n = 0;
+      dates.forEach((d, i) => {
+        const s = state(it, i); if (s === "yes") n++;
+        const label = it.name + ", " + d.toLocaleDateString(undefined, { weekday: "long" }) + ": " + (s === "yes" ? "done" : s === "part" ? "partly done" : s === "no" ? "missed" : "not done yet");
+        html += '<td><div class="c ' + s + '" role="img" aria-label="' + label.replace(/"/g, "&quot;") + '">' + (s === "yes" ? TICK : s === "no" ? CROSS : "") + "</div></td>";
+      });
+      done += n; possible += 7;
+      html += '<td class="n">' + n + "/7</td></tr>";
+    });
+  });
+  html += '</tbody><tfoot><tr><th>Day</th>' + vals.map((v, i) => { const s = dayState(i); return '<td><div class="c day ' + s + '" role="img" aria-label="' + dates[i].toLocaleDateString(undefined, { weekday: "long" }) + ": " + dayDone(i) + " of " + ALL.length + ' done">' + dayDone(i) + "</div></td>"; }).join("") + "<td></td></tr></tfoot>";
+  g.innerHTML = html;
+  // Names go in as text so nothing in a habit name is read as HTML.
+  const names = HABITS.filter(c => c.items.length);
+  const cats = g.querySelectorAll("tr.cat th"); names.forEach((c, i) => cats[i].textContent = c.cat);
+  const rows = g.querySelectorAll("th.hn"); ALL.forEach((it, i) => { rows[i].textContent = it.name; rows[i].title = it.name; });
+  document.getElementById("summary").textContent = done + " of " + possible + " habit days done (" + Math.round(done / possible * 100) + "%)";
+  longView(today);
+})();
+
+// L7, L30, L60 and L90: share of days each habit was done, over the days before today.
+// Days before tracking started don't count against you.
+async function longView(today) {
+  const WINDOWS = [7, 30, 60, 90];
+  const days = [...Array(90)].map((_, i) => { const d = new Date(today); d.setDate(today.getDate() - 1 - i); return d; }); // yesterday first
+  const vals = await Promise.all(days.map(d => load("routine", isoDate(d))));
+  const ticks = await Promise.all(days.map(d => load("ticks", isoDate(d))));
+  let first = -1; // oldest day with anything recorded
+  days.forEach((d, i) => { if (Object.keys(vals[i]).length || Object.keys(ticks[i]).length) first = i; });
+  const workoutDone = i => { const ids = idsOf(DAYKEYS[days[i].getDay()], lenOf(ticks[i])); return ids.every(id => ticks[i][id]); };
+  const doneOn = (it, i) => isDone(it, vals[i]) || (it.id === "program" && workoutDone(i));
+  const cell = (it, w) => {
+    const n = Math.min(w, first + 1);
+    if (n <= 0) return '<td><div class="p none" role="img" aria-label="no days yet"><b>–</b></div></td>';
+    let k = 0; for (let i = 0; i < n; i++) if (doneOn(it, i)) k++;
+    const pct = Math.round(k / n * 100), s = pct >= 80 ? "yes" : pct >= 50 ? "part" : "no";
+    return '<td><div class="p ' + s + '" role="img" aria-label="' + k + " of " + n + ' days"><b>' + pct + "%</b><small>" + k + "/" + n + "</small></div></td>";
+  };
+  let html = '<colgroup><col>' + '<col class="w">'.repeat(4) + '</colgroup><thead><tr><th></th>' + WINDOWS.map(w => "<th>L" + w + "</th>").join("") + "</tr></thead><tbody>";
+  HABITS.filter(c => c.items.length).forEach(c => {
+    html += '<tr class="cat"><th colspan="5"></th></tr>';
+    c.items.forEach(it => html += '<tr><th class="hn" scope="row"></th>' + WINDOWS.map(w => cell(it, w)).join("") + "</tr>");
+  });
+  const t = document.getElementById("long"); t.innerHTML = html + "</tbody>";
+  const cats = t.querySelectorAll("tr.cat th"); HABITS.filter(c => c.items.length).forEach((c, i) => cats[i].textContent = c.cat);
+  const rows = t.querySelectorAll("th.hn"); ALL.forEach((it, i) => rows[i].textContent = it.name);
+  document.getElementById("longnote").textContent = first < 0 ? "Nothing recorded before today yet."
+    : first + 1 < 90 ? "Tracking started " + days[first].toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) + ", so longer windows count " + (first + 1) + " days for now." : "";
+}
+</script>
+<script src="nav.js?v=6"></script>
+</body></html>
