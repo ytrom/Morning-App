@@ -5,8 +5,10 @@ The Work tab reads today's MITs and LITs from Mission Control on the LAN (MC_URL
 so the phone only ever talks to this server. /api/mc/waiting is Mission Control's Waiting list: MITs
 marked "Done for today, waiting on..." with a chase date.
 Ticking (or unticking) "Exercise program" on the Disciplines page also ticks that day's Mission Control
-scheduled task with "workout" in its title. On start-up, days in the last two weeks with it ticked are
-ticked in Mission Control too (catch-up only; nothing is unticked)."""
+scheduled task with "workout" in its title; it only syncs when that box changes, so saving other habits
+never unticks it. Ticking exercises on the Workout tab ticks it too (and clearing them all unticks it).
+On start-up, days in the last two weeks with Exercise program ticked are ticked in Mission Control too
+(catch-up only; nothing is unticked)."""
 import hashlib, hmac, html, json, os, re, threading, time
 import urllib.error, urllib.request
 from http.cookies import SimpleCookie
@@ -279,10 +281,13 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(400, {"error": "bad data"})
         with lock:
             data = load(m.group(1))
+            before = data.get(m.group(2)) if isinstance(data.get(m.group(2)), dict) else {}
             data[m.group(2)] = ticks
             save(m.group(1), data)
-        if m.group(1) == "routine":
+        if m.group(1) == "routine" and (before.get("program") is True) != (ticks.get("program") is True):
             sync_workout(m.group(2), ticks.get("program") is True)
+        elif m.group(1) == "ticks" and bool(before) != bool(ticks):
+            sync_workout(m.group(2), bool(ticks))
         return self.send_json(200, ticks)
 
 
