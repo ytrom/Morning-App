@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en-AU"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Workout">
+<meta name="theme-color" content="#0d7480">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}*,*::before,*::after{box-sizing:border-box}[hidden]{display:none!important}</style>
+<title>Morty's Work</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column, day picker strip on top, today's session as a checklist of exercise rows */
+:root {
+  --bg: #eef3f4; --surface: #ffffff; --ink: #13222b; --muted: #5a6b74; --line: #d5dfe3;
+  --accent: #0d7480; --accent-soft: #d6ecee; --done: #2f7d4f; --done-soft: #dcefe3;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f181d; --surface: #172329; --ink: #e4eef1; --muted: #93a6ae; --line: #2a3a42;
+  --accent: #4fc0cb; --accent-soft: #173c42; --done: #6fcf97; --done-soft: #1b3a29; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f181d; --surface: #172329; --ink: #e4eef1; --muted: #93a6ae; --line: #2a3a42;
+  --accent: #4fc0cb; --accent-soft: #173c42; --done: #6fcf97; --done-soft: #1b3a29; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font: 16px/1.45 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; }
+.wrap { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 4px 0 0; font-size: .95rem; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day { font: 600 .95rem var(--display); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 0 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.day .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.day.part .dot { background: var(--accent); }
+.day.full .dot { background: var(--done); }
+.day[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.day[aria-pressed="true"] .dot { background: var(--surface); }
+.day:focus-visible, .check:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+.head h2 { font: 700 1.5rem/1.1 var(--display); margin: 0; }
+.head .meta { color: var(--muted); font-size: .9rem; }
+.bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--done); width: 0; transition: width .3s; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group h3 { font: 600 .8rem var(--body); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 6px 0 0; }
+.item { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.item.is-done { background: var(--done-soft); border-color: transparent; }
+.item.is-done .name { text-decoration: line-through; text-decoration-color: var(--done); }
+.check { width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--accent); background: transparent; cursor: pointer;
+  display: grid; place-items: center; padding: 0; color: var(--surface); }
+.item.is-done .check { background: var(--done); border-color: var(--done); }
+.check svg { width: 18px; height: 18px; opacity: 0; }
+.item.is-done .check svg { opacity: 1; }
+.body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.name { font-weight: 600; font-size: 1.05rem; }
+.dose { font: 600 1rem var(--display); letter-spacing: .03em; color: var(--accent); font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: .9rem; }
+.vids { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.vid { display: inline-flex; align-items: center; gap: 5px; font-size: .85rem; font-weight: 600; color: var(--accent);
+  background: var(--accent-soft); border-radius: 99px; padding: 4px 10px; text-decoration: none; }
+.vid svg { width: 12px; height: 12px; fill: currentColor; }
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: .85rem; }
+.reset { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 6px 12px; font: inherit; cursor: pointer; }
+.cheer { background: var(--done-soft); color: var(--done); border-radius: 12px; padding: 12px 14px; font-weight: 600; }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.tabs a { display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px 2px; border-radius: 9px; font: 600 .85rem/1.1 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+.tabs a[aria-current="page"] { background: var(--accent); color: var(--surface); }
+@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+</style>
+<style>
+:root { --mit: #a8650a; --mit-soft: #fbecd4; --lit: #5b5b9a; --lit-soft: #e9e9f5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --mit: #f0b35a; --mit-soft: #3a2a12; --lit: #a9a9e6; --lit-soft: #26263f; } }
+:root[data-theme="dark"] { --mit: #f0b35a; --mit-soft: #3a2a12; --lit: #a9a9e6; --lit-soft: #26263f; }
+.date-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.date-row h2 { font: 700 1.5rem/1.1 var(--display); margin: 0; text-align: center; flex: 1; }
+.date-row .meta { display: block; color: var(--muted); font: 400 .9rem var(--body); margin-top: 2px; }
+.step { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 1.2rem; cursor: pointer; }
+.item.mit .check { border-color: var(--mit); }
+.item.mit.is-part { border-color: var(--mit); }
+.mtag { display: inline-block; font: 700 .72rem/1 var(--body); text-transform: uppercase; letter-spacing: .06em; border-radius: 5px; padding: 3px 6px; margin-right: 6px; vertical-align: 2px; background: var(--mit-soft); color: var(--mit); }
+.sstep { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; font-size: .95rem; padding: 4px 0; cursor: pointer; }
+.sstep input { width: 20px; height: 20px; accent-color: var(--done); margin: 0; }
+.sstep em { font-style: normal; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .85rem; }
+.sstep.d span { text-decoration: line-through; color: var(--muted); }
+.lit { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; cursor: pointer; }
+.lit input { width: 20px; height: 20px; accent-color: var(--lit); margin: 0; }
+.lit.d span { text-decoration: line-through; color: var(--muted); }
+.ltag { font: 700 .72rem/1 var(--body); text-transform: uppercase; letter-spacing: .06em; color: var(--lit); margin-right: 6px; }
+.empty { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 14px; color: var(--muted); }
+.item.mit.shut { grid-template-columns: auto 1fr; align-items: center; padding: 8px 14px; }
+.item.mit.shut .check { width: 26px; height: 26px; }
+.item.park { background: var(--done-soft); border-color: transparent; }
+.item.park .check { background: var(--done); border-color: var(--done); }
+.item.park .check svg { opacity: 1; }
+.ptag { color: var(--done); font-size: .88rem; font-weight: 600; }
+.tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.mini { font: 600 .85rem var(--body); padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.mini.go { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.mini.ok { background: var(--done-soft); border-color: transparent; color: var(--done); }
+.mini[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding: 10px; border-radius: 10px; background: var(--bg); }
+.form label, .form .lbl { font-size: .85rem; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.form input, .form textarea { font: inherit; font-size: 1rem; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); width: 100%; box-sizing: border-box; }
+.form .row { display: flex; gap: 6px; }
+.form .row input[type="number"] { width: 80px; flex: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.wait { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--done); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 3px; }
+.wait.due { border-color: var(--done); border-left-width: 4px; }
+.wait b { font-weight: 600; }
+.offrow { display: flex; justify-content: flex-end; margin-bottom: -6px; }
+.offbtn { border: 0; border-radius: 99px; background: #a8650a; color: #fff; font: 700 .95rem var(--body); padding: 9px 16px; cursor: pointer; }
+.warn { background: #fdecea; color: #a12a12; border-radius: 12px; padding: 12px 14px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .warn { background: #3a1d1a; color: #f2a59a; } }
+</style>
+</head><body>
+<div class="wrap">
+  <header>
+    <h1>Work</h1>
+    <p class="sub">Today's MITs and LITs from Mission Control</p>
+  </header>
+  <nav class="tabs" aria-label="Pages"><a href="work.html">Today</a><a href="cal.html">Calendar</a><a href="performance.html">Performance</a></nav>
+  <section class="date-row">
+    <button class="step" id="prev" type="button" aria-label="Previous day">&#8249;</button>
+    <h2><span id="dayname"></span><span class="meta" id="daydate"></span></h2>
+    <button class="step" id="next" type="button" aria-label="Next day">&#8250;</button>
+  </section>
+  <div class="offrow"><button class="offbtn" id="offload" type="button">Offload Idea</button></div>
+  <main id="list" class="group" aria-live="polite"></main>
+  <div class="foot"><span id="saved">Planned in Mission Control. Ticks save straight back to it.</span></div>
+</div>
+<script>
+// Work > Today: the day's MITs (with their timed steps) and LITs from Mission Control's day plan,
+// through this app's server (/api/mc/day-plan), so it works from the phone away from the LAN too.
+// Same follow-up flow as Mission Control › Work: "+ Add step", "Done for today, waiting on…" (onto the
+// Waiting list via /api/mc/waiting with a chase date), Chase today, and done MITs shut and drop to the bottom.
+const TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const z = n => String(n).padStart(2, "0");
+const iso = d => d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
+const mins = t => { const [a, b] = t.split(":").map(Number); return a * 60 + (b || 0); };
+const nice = m => (Math.floor(m / 60) % 12 || 12) + ":" + z(m % 60) + (m < 720 ? "am" : "pm");
+const hm = m => m >= 60 ? Math.floor(m / 60) + "h" + (m % 60 ? " " + (m % 60) + "m" : "") : m + " min";
+const block = steps => Math.ceil(steps.reduce((a, s) => a + (+s.min || 0), 0) * 1.15 / 5) * 5;
+const today = new Date(); today.setHours(12, 0, 0, 0);
+let sel = new Date(today), items = [];
+const list = document.getElementById("list"), saved = document.getElementById("saved");
+
+// One save at a time so ticks can't arrive out of order
+let saving = Promise.resolve();
+function keep(p) {
+  saving = saving.then(async () => {
+    const r = await fetch("api/mc/day-plan", { method: "PATCH", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id, steps: p.steps, done: p.done }) });
+    if (!r.ok) throw 0;
+    saved.textContent = "Saved to Mission Control.";
+  }).catch(() => { saved.textContent = "Couldn't reach Mission Control, so that tick didn't save. Try again in a moment."; });
+}
+
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const plus = n => { const d = new Date(today); d.setDate(d.getDate() + n); return iso(d); };
+const nextMon = () => { const d = new Date(today); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return iso(d); };
+const shortDay = k => { if (k === iso(today)) return "today"; if (k === plus(1)) return "tomorrow"; const d = new Date(k + "T12:00"); return DAYS[d.getDay()] + " " + d.getDate() + "/" + (d.getMonth() + 1); };
+const isDone = m => !!m.done || (m.steps.length > 0 && m.steps.every(s => s.done));
+let waiting = [], openForm = null;
+
+async function call(path, method, body) {
+  const r = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "Couldn't reach Mission Control");
+  return d;
+}
+function say(t) { saved.textContent = t; }
+
+async function load() {
+  const k = iso(sel);
+  document.getElementById("dayname").textContent = +sel === +today ? "Today" : sel.toLocaleDateString(undefined, { weekday: "long" });
+  document.getElementById("daydate").textContent = sel.toLocaleDateString(undefined, { day: "numeric", month: "long" });
+  list.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const [r, w] = await Promise.all([fetch("api/mc/day-plan?from=" + k + "&to=" + k), fetch("api/mc/waiting").catch(() => null)]);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "error");
+    items = d.items || [];
+    waiting = w && w.ok ? ((await w.json()).items || []) : [];
+    draw();
+  } catch (e) {
+    list.innerHTML = '<div class="warn">Couldn\'t reach Mission Control. Check it\'s running, then come back to this page.</div>';
+  }
+}
+
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const btn = (txt, cls, fn) => { const b = el("button", "mini" + (cls ? " " + cls : ""), txt); b.type = "button"; b.onclick = fn; return b; };
+
+// "+ Add step": text and minutes, saved onto the MIT
+function stepForm(m) {
+  const f = el("div", "form"), row = el("div", "row");
+  const t = el("input"); t.placeholder = "Next step"; t.setAttribute("aria-label", "Step");
+  const n = el("input"); n.type = "number"; n.min = "0"; n.value = "15"; n.setAttribute("aria-label", "Minutes");
+  row.append(t, n);
+  const go = btn("Add step", "go", () => {
+    if (!t.value.trim()) return t.focus();
+    m.steps.push({ text: t.value.trim(), min: Math.max(0, +n.value || 0), done: false }); m.done = false;
+    openForm = null; keep(m); draw();
+  });
+  f.append(row, el("div", "tools")); f.lastChild.append(go, btn("Cancel", "", () => { openForm = null; draw(); }));
+  setTimeout(() => t.focus(), 0);
+  return f;
+}
+
+// "Done for today, waiting on…": who, when to chase, an optional next step. Goes on the Waiting list.
+function parkForm(m) {
+  const f = el("div", "form");
+  const who = el("input"); who.placeholder = "e.g. Toni, the bank, Birch & Co";
+  const l1 = el("label", "", "Waiting on"); l1.append(who);
+  let chase = plus(1);
+  const chips = el("div", "chips"), date = el("input"); date.type = "date"; date.value = chase;
+  const opts = [["Tomorrow", plus(1)], ["2 days", plus(2)], ["3 days", plus(3)], ["Next Mon", nextMon()]];
+  const mark = () => chips.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", String(opts[i][1] === chase)));
+  opts.forEach(([t, k]) => chips.append(btn(t, "", () => { chase = k; date.value = k; mark(); })));
+  date.onchange = () => { chase = date.value; mark(); };
+  const l2 = el("div", "lbl", "Chase on"); l2.setAttribute("role", "group"); date.setAttribute("aria-label", "Chase date"); l2.append(chips, date); mark();
+  const nx = el("input"); nx.placeholder = "e.g. Chase Toni for the signed lease";
+  const l3 = el("label", "", "Next step when it comes back (optional)"); l3.append(nx);
+  const note = el("textarea"); note.rows = 2;
+  const l4 = el("label", "", "Note (optional)"); l4.append(note);
+  const go = btn("⏸ Park it", "go", async () => {
+    if (!who.value.trim()) return who.focus();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(chase)) return date.focus();
+    const steps = m.steps.filter(s => !s.done).map(s => ({ text: s.text, min: s.min }));
+    if (nx.value.trim()) steps.push({ text: nx.value.trim(), min: 15 });
+    go.disabled = true;
+    try {
+      await call("api/mc/waiting", "POST", { title: m.title, waitingOn: who.value.trim(), chaseOn: chase, planId: m.id, taskId: m.taskId, note: note.value.trim(), steps });
+      await call("api/mc/day-plan", "PATCH", { id: m.id, done: true });
+      openForm = null; say("Done for today. Chase " + shortDay(chase) + ".");
+      load();
+    } catch (e) { go.disabled = false; say("Not saved: " + e.message); }
+  });
+  const row = el("div", "tools"); row.append(go, btn("Cancel", "", () => { openForm = null; draw(); }));
+  f.append(l1, l2, l3, l4, row);
+  setTimeout(() => who.focus(), 0);
+  return f;
+}
+
+// Back from waiting: today's MIT or LIT again (closing the waiting item), or just close it
+async function bringBack(w, kind) {
+  try {
+    if (kind) await call("api/mc/day-plan", "POST", { day: iso(today), kind, title: w.title, taskId: w.taskId,
+      steps: kind === "lit" ? [{ text: w.title, min: 15 }] : w.steps });
+    await call("api/mc/waiting", "PATCH", { id: w.id, closed: true });
+    say(kind ? "Back on today's list as a" + (kind === "mit" ? "n MIT." : " LIT.") : "Closed.");
+    load();
+  } catch (e) { say("Not saved: " + e.message); }
+}
+
+function waitCard(w, due) {
+  const c = el("div", "wait" + (due ? " due" : ""));
+  const t = el("b", "", w.title); c.append(t);
+  c.append(el("div", "note", "Waiting on " + (w.waitingOn || "someone") + " · chase " + shortDay(w.chaseOn) + (w.chases ? " · chased " + w.chases + "×" : "")));
+  if (w.note) c.append(el("div", "note", w.note));
+  if (due) {
+    const tl = el("div", "tools");
+    tl.append(
+      btn("Chased · still waiting", "", () => { openForm = openForm === "c" + w.id ? null : "c" + w.id; draw(); }),
+      btn("Back · make it an MIT", "ok", () => bringBack(w, "mit")),
+      btn("Make it a LIT", "", () => bringBack(w, "lit")),
+      btn("Close", "", () => bringBack(w, null)));
+    c.append(tl);
+    if (openForm === "c" + w.id) {
+      const f = el("div", "form"), chips = el("div", "chips");
+      [["Tomorrow", plus(1)], ["2 days", plus(2)], ["3 days", plus(3)], ["Next Mon", nextMon()]].forEach(([tx, k]) => chips.append(btn(tx, "", async () => {
+        try { await call("api/mc/waiting", "PATCH", { id: w.id, chased: true, chaseOn: k }); openForm = null; say("Chase again " + shortDay(k) + "."); load(); }
+        catch (e) { say("Not saved: " + e.message); }
+      })));
+      const l = el("div", "lbl", "Chase again on"); l.setAttribute("role", "group"); l.append(chips); f.append(l); c.append(f);
+    }
+  }
+  return c;
+}
+
+function draw() {
+  list.innerHTML = "";
+  const isToday = +sel === +today, k = iso(today);
+  // Done MITs drop to the bottom and shut to one line; open ones in start-time order
+  const mits = items.filter(i => i.kind === "mit").sort((a, b) => (a.start || "99").localeCompare(b.start || "99"));
+  const order = [...mits].sort((a, b) => Number(isDone(a)) - Number(isDone(b)) || (a.start || "99").localeCompare(b.start || "99"));
+  const lits = items.filter(i => i.kind === "lit");
+  const parkedBy = id => waiting.find(w => w.planId === id);
+
+  if (isToday) {
+    const due = waiting.filter(w => w.chaseOn <= k);
+    if (due.length) { list.append(el("h3", "", "Chase today · " + due.length)); due.forEach(w => list.append(waitCard(w, true))); }
+  }
+
+  list.append(el("h3", "", "MITs"));
+  if (!mits.length) list.append(el("div", "empty", "No MITs for this day. Plan them in Mission Control with Make it an MIT."));
+  order.forEach(m => {
+    const i = mits.indexOf(m), done = isDone(m), part = !done && m.steps.some(s => s.done), park = done && parkedBy(m.id);
+    const row = el("div", "item mit" + (park ? " park shut" : done ? " is-done shut" : part ? " is-part" : ""));
+    const cb = el("button", "check"); cb.type = "button"; cb.innerHTML = TICK;
+    cb.setAttribute("role", "checkbox"); cb.setAttribute("aria-checked", done ? "true" : part ? "mixed" : "false"); cb.setAttribute("aria-label", "MIT " + (i + 1) + " done: " + m.title);
+    cb.onclick = () => { const all = !done; m.steps.forEach(s => (s.done = all)); m.done = all; keep(m); draw(); };
+    const body = el("div", "body");
+    const nm = el("div", "name"); nm.append(el("span", "mtag", "MIT " + (i + 1)), m.title); body.append(nm);
+    if (park) {
+      body.append(el("div", "ptag", "⏸ Done for today · waiting on " + (park.waitingOn || "someone") + " · chase " + shortDay(park.chaseOn)));
+      row.append(cb, body); list.append(row); return;
+    }
+    if (done) { row.append(cb, body); list.append(row); return; }
+    body.append(el("div", "note", (m.start ? nice(mins(m.start)) + " · " : "") + hm(block(m.steps)) + (m.output ? " · Output: " + m.output : "")));
+    let at = m.start ? mins(m.start) : null;
+    m.steps.forEach(s => {
+      const r = el("label", "sstep" + (s.done ? " d" : ""));
+      const c = el("input"); c.type = "checkbox"; c.checked = !!s.done;
+      c.onchange = () => { s.done = c.checked; m.done = m.steps.every(x => x.done); keep(m); draw(); };
+      r.append(c, el("span", "", s.text), el("em", "", at === null ? s.min + " min" : nice(at)));
+      body.append(r); if (at !== null) at += +s.min || 0;
+    });
+    const tl = el("div", "tools");
+    tl.append(btn("+ Add step", "", () => { openForm = openForm === "s" + m.id ? null : "s" + m.id; draw(); }),
+      btn("⏸ Done for today, waiting on…", "ok", () => { openForm = openForm === "p" + m.id ? null : "p" + m.id; draw(); }));
+    body.append(tl);
+    if (openForm === "s" + m.id) body.append(stepForm(m));
+    if (openForm === "p" + m.id) body.append(parkForm(m));
+    row.append(cb, body); list.append(row);
+  });
+  if (lits.length) {
+    list.append(el("h3", "", "LITs · " + lits.filter(l => l.done).length + " of " + lits.length + " done"));
+    lits.forEach(l => {
+      const r = el("label", "lit" + (l.done ? " d" : ""));
+      const c = el("input"); c.type = "checkbox"; c.checked = !!l.done;
+      c.onchange = () => { l.done = c.checked; keep(l); draw(); };
+      const tx = el("span"); tx.append(el("b", "ltag", "LIT"), l.title); r.append(c, tx); list.append(r);
+    });
+  }
+  if (isToday) {
+    const later = waiting.filter(w => w.chaseOn > k);
+    if (later.length) { list.append(el("h3", "", "Waiting on others · " + later.length)); later.forEach(w => list.append(waitCard(w, false))); }
+  }
+}
+
+document.getElementById("prev").onclick = () => { sel.setDate(sel.getDate() - 1); openForm = null; load(); };
+document.getElementById("next").onclick = () => { sel.setDate(sel.getDate() + 1); openForm = null; load(); };
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !openForm) load(); });
+load();
+document.getElementById("offload").onclick = e => window.mcOffload && window.mcOffload(e.currentTarget);
+</script>
+<script src="nav.js?v=6"></script>
+</body></html>

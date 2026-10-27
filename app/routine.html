@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en-AU"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Workout">
+<meta name="theme-color" content="#0d7480">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}*,*::before,*::after{box-sizing:border-box}[hidden]{display:none!important}</style>
+<title>Morty's Disciplines</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column, day picker strip on top, today's session as a checklist of exercise rows */
+:root {
+  --bg: #eef3f4; --surface: #ffffff; --ink: #13222b; --muted: #5a6b74; --line: #d5dfe3;
+  --accent: #0d7480; --accent-soft: #d6ecee; --done: #2f7d4f; --done-soft: #dcefe3;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f181d; --surface: #172329; --ink: #e4eef1; --muted: #93a6ae; --line: #2a3a42;
+  --accent: #4fc0cb; --accent-soft: #173c42; --done: #6fcf97; --done-soft: #1b3a29; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f181d; --surface: #172329; --ink: #e4eef1; --muted: #93a6ae; --line: #2a3a42;
+  --accent: #4fc0cb; --accent-soft: #173c42; --done: #6fcf97; --done-soft: #1b3a29; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font: 16px/1.45 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; }
+.wrap { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 4px 0 0; font-size: .95rem; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day { font: 600 .95rem var(--display); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 0 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.day .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.day.part .dot { background: var(--accent); }
+.day.full .dot { background: var(--done); }
+.day[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.day[aria-pressed="true"] .dot { background: var(--surface); }
+.day:focus-visible, .check:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+.head h2 { font: 700 1.5rem/1.1 var(--display); margin: 0; }
+.head .meta { color: var(--muted); font-size: .9rem; }
+.bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--done); width: 0; transition: width .3s; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group h3 { font: 600 .8rem var(--body); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 6px 0 0; }
+.item { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.item.is-done { background: var(--done-soft); border-color: transparent; }
+.item.is-done .name { text-decoration: line-through; text-decoration-color: var(--done); }
+.check { width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--accent); background: transparent; cursor: pointer;
+  display: grid; place-items: center; padding: 0; color: var(--surface); }
+.item.is-done .check { background: var(--done); border-color: var(--done); }
+.check svg { width: 18px; height: 18px; opacity: 0; }
+.item.is-done .check svg { opacity: 1; }
+.body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.name { font-weight: 600; font-size: 1.05rem; }
+.dose { font: 600 1rem var(--display); letter-spacing: .03em; color: var(--accent); font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: .9rem; }
+.vids { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.vid { display: inline-flex; align-items: center; gap: 5px; font-size: .85rem; font-weight: 600; color: var(--accent);
+  background: var(--accent-soft); border-radius: 99px; padding: 4px 10px; text-decoration: none; }
+.vid svg { width: 12px; height: 12px; fill: currentColor; }
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: .85rem; }
+.reset { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 6px 12px; font: inherit; cursor: pointer; }
+.cheer { background: var(--done-soft); color: var(--done); border-radius: 12px; padding: 12px 14px; font-weight: 600; }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.tabs a { display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px 2px; border-radius: 9px; font: 600 .85rem/1.1 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+.tabs a[aria-current="page"] { background: var(--accent); color: var(--surface); }
+@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+</style>
+
+<style>
+.date-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.date-row h2 { font: 700 1.5rem/1.1 var(--display); margin: 0; text-align: center; flex: 1; }
+.date-row .meta { display: block; color: var(--muted); font: 400 .9rem var(--body); margin-top: 2px; }
+.step { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 1.2rem; cursor: pointer; }
+.step:disabled { opacity: .35; cursor: default; }
+.timebox { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.timebox input { font: 600 1.2rem var(--display); letter-spacing: .03em; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-variant-numeric: tabular-nums; }
+.btn { font: 600 .9rem var(--body); padding: 8px 12px; border-radius: 8px; border: 0; background: var(--accent-soft); color: var(--accent); cursor: pointer; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.wk { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 0; text-align: center; display: flex; flex-direction: column; gap: 2px; }
+.wk b { font: 600 .8rem var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.wk span { font: 600 .95rem var(--display); font-variant-numeric: tabular-nums; }
+.wk.sel { border-color: var(--accent); }
+.item.timed.is-done .name, .item.num.is-done .name { text-decoration: none; }
+#list .group + .group { margin-top: 6px; }
+.daycard { cursor: default; }
+.item.is-part { border-color: #e0a800; }
+.item.is-part .check { border-color: #e0a800; }
+.timebox input[type=number] { width: 7.5em; }
+.wk i { font: 400 .7rem var(--body); font-style: normal; color: var(--muted); }
+.sleep { font: 600 .95rem var(--display); letter-spacing: .03em; color: var(--done); margin-top: 4px; }
+.daycard { width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font: inherit; color: var(--ink); cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.daycard .times { font: 600 1.1rem var(--display); letter-spacing: .03em; font-variant-numeric: tabular-nums; }
+.daycard .sleep { display: block; }
+.daycard .hint { color: var(--accent); font-weight: 600; font-size: .9rem; white-space: nowrap; }
+button.wk { font: inherit; color: var(--ink); cursor: pointer; }
+button.wk:disabled { cursor: default; opacity: .5; }
+</style>
+</head><body>
+<div class="wrap">
+  <header>
+    <h1>Habits</h1>
+    <p class="sub">Small wins, every day</p>
+  </header>
+  <nav class="tabs" aria-label="Pages"><a href="routine.html">Disciplines</a><a href="./">Workout</a><a href="soon.html#reading">Reading</a><a href="performance.html">Performance</a></nav>
+  <section class="date-row">
+    <button class="step" id="prev" type="button" aria-label="Previous day">&#8249;</button>
+    <h2><span id="dayname"></span><span class="meta" id="daydate"></span></h2>
+    <button class="step" id="next" type="button" aria-label="Next day">&#8250;</button>
+  </section>
+  <div class="daycard" id="daycard"><span><span class="times" id="daytimes"></span><span class="sleep" id="daysleep" hidden></span></span></div>
+  <section class="group">
+    <h3>This week</h3>
+    <div class="week" id="week"></div>
+  </section>
+  <main id="list" class="group"></main>
+  <div class="foot"><span id="saved">Saved on this device.</span></div>
+</div>
+<script src="habits.js?v=2"></script>
+<script src="plan.js?v=1"></script>
+<script>
+const TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+function isoDate(d) { const z = n => String(n).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); }
+function nowTime() { const d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+function niceTime(t) { if (!t) return "–"; let [h, m] = t.split(":").map(Number); const ap = h < 12 ? "am" : "pm"; h = h % 12 || 12; return h + ":" + String(m).padStart(2, "0") + ap; }
+
+const today = new Date(); today.setHours(12, 0, 0, 0);
+let sel = new Date(today);
+const days = {}; // date -> {id: true | "HH:MM" | number}
+const local = {
+  get(k) { try { return JSON.parse(localStorage.getItem("routine:" + k) || "{}"); } catch { return {}; } },
+  set(k, v) { try { localStorage.setItem("routine:" + k, JSON.stringify(v)); } catch {} }
+};
+
+async function load(k) {
+  if (days[k]) return days[k];
+  days[k] = local.get(k);
+  try { const r = await fetch("api/routine/" + k); if (r.ok) { days[k] = await r.json(); local.set(k, days[k]); document.getElementById("saved").textContent = "Saved on your NAS, so it shows on your phone and computer."; } } catch {}
+  return days[k];
+}
+// One save at a time, each sending the latest state, so saves can't arrive out of order.
+let saving = Promise.resolve();
+function save(k) {
+  local.set(k, days[k]);
+  saving = saving.then(async () => {
+    const r = await fetch("api/routine/" + k, { method: "PUT", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify(days[k]) });
+    if (!r.ok) throw 0;
+  }).catch(() => { document.getElementById("saved").textContent = "Couldn't reach the NAS. This entry is kept on this device for now."; });
+}
+
+// Minutes from the previous evening's bedtime to this morning's wake-up. A bedtime before
+// midday counts as after midnight (for example 00:30).
+function sleepBetween(bed, wake) {
+  if (typeof bed !== "string" || typeof wake !== "string") return null;
+  const mins = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const b = mins(bed), w = mins(wake);
+  const total = b >= 12 * 60 ? 24 * 60 - b + w : w - b;
+  return total > 0 && total < 16 * 60 ? total : null;
+}
+
+function weekOf(d) { const dow = (d.getDay() + 6) % 7; const mon = new Date(d); mon.setDate(d.getDate() - dow); return [...Array(7)].map((_, i) => { const x = new Date(mon); x.setDate(mon.getDate() + i); return x; }); }
+
+// Exercise program follows the Workout tab: done when every exercise in that day's chosen
+// version (15, 30 or 45 min) is ticked. An old manual tick still counts until it's cleared.
+const work = {}; // date -> { n, tot, len }
+async function loadWork(k) {
+  if (work[k]) return work[k];
+  let t = {};
+  try { const r = await fetch("api/ticks/" + k); if (r.ok) t = await r.json(); else throw 0; } catch { try { t = JSON.parse(localStorage.getItem("ticks:" + k) || "{}"); } catch {} }
+  const len = lenOf(t), ids = idsOf(["sun", "mon", "tue", "wed", "thu", "fri", "sat"][new Date(k + "T12:00").getDay()], len);
+  return work[k] = { n: ids.filter(id => t[id]).length, tot: ids.length, len };
+}
+function isDoneH(it, v, k) { return isDone(it, v) || (it.id === "program" && !!work[k] && work[k].n === work[k].tot); }
+function countH(v, k) { return ALL.filter(it => isDoneH(it, v, k)).length; }
+
+function habitRow(it, v, k, isToday, sleepText) {
+  const done = isDoneH(it, v, k);
+  if (it.id === "program") return programRow(it, v, k, done);
+  const row = document.createElement("div"); row.className = "item" + (it.type === "time" ? " timed" : it.type === "number" ? " num" : "") + (done ? " is-done" : "");
+  const cb = document.createElement("button"); cb.type = "button"; cb.className = "check"; cb.innerHTML = TICK;
+  cb.setAttribute("role", "checkbox"); cb.setAttribute("aria-checked", String(done)); cb.setAttribute("aria-label", "Done: " + it.name);
+  cb.onclick = () => {
+    if (v[it.id] !== undefined && (done || it.type !== "number")) delete v[it.id];
+    else v[it.id] = it.type === "time" ? (isToday ? nowTime() : (it.pickDefault || "07:00")) : it.type === "number" ? it.goal : true;
+    save(k); render();
+  };
+  const body = document.createElement("div"); body.className = "body";
+  const name = document.createElement("div"); name.className = "name"; name.textContent = it.name; body.appendChild(name);
+  if (it.note) { const n = document.createElement("div"); n.className = "note"; n.textContent = it.note; body.appendChild(n); }
+  if (it.type === "time" || it.type === "number") {
+    const box = document.createElement("div"); box.className = "timebox";
+    const inp = document.createElement("input"); inp.id = "t-" + it.id;
+    if (it.type === "time") { inp.type = "time"; inp.value = typeof v[it.id] === "string" ? v[it.id] : ""; }
+    else { inp.type = "number"; inp.min = "0"; inp.step = String(it.step); inp.inputMode = it.step < 1 ? "decimal" : "numeric"; inp.placeholder = "0"; inp.value = typeof v[it.id] === "number" ? v[it.id] : ""; }
+    inp.setAttribute("aria-label", it.name + (it.type === "time" ? " time" : " in " + it.unit));
+    inp.onchange = () => {
+      const val = it.type === "time" ? inp.value : parseFloat(inp.value);
+      if (it.type === "time" ? val : val > 0) v[it.id] = val; else delete v[it.id];
+      save(k); render();
+    };
+    box.appendChild(inp);
+    if (it.type === "number") { const u = document.createElement("span"); u.className = "note"; u.textContent = it.unit; box.appendChild(u); }
+    const quick = it.type === "time" ? (isToday ? it.nowLabel || "Now" : "") : it.addLabel || "+ " + it.add.toLocaleString();
+    if (quick) {
+      const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = quick;
+      b.onclick = () => { v[it.id] = it.type === "time" ? nowTime() : Math.round(((typeof v[it.id] === "number" ? v[it.id] : 0) + it.add) * 100) / 100; save(k); render(); };
+      box.appendChild(b);
+    }
+    body.appendChild(box);
+    if (it.id === "wake" && sleepText) { const sl = document.createElement("div"); sl.className = "sleep"; sl.textContent = sleepText; body.appendChild(sl); }
+  }
+  row.append(cb, body); return row;
+}
+
+function programRow(it, v, k, done) {
+  const w = work[k], part = !done && w.n > 0;
+  const row = document.createElement("div"); row.className = "item" + (done ? " is-done" : part ? " is-part" : "");
+  const cb = document.createElement("button"); cb.type = "button"; cb.className = "check"; cb.innerHTML = TICK;
+  cb.setAttribute("role", "checkbox"); cb.setAttribute("aria-checked", done ? "true" : part ? "mixed" : "false");
+  cb.setAttribute("aria-label", it.name + ": ticks itself from the Workout tab");
+  // A leftover manual tick can be cleared here; otherwise the box opens the Workout tab.
+  cb.onclick = () => { if (v.program) { delete v.program; save(k); render(); } else location.href = "./"; };
+  const body = document.createElement("div"); body.className = "body";
+  const name = document.createElement("div"); name.className = "name"; name.textContent = it.name;
+  const n = document.createElement("div"); n.className = "note";
+  n.textContent = w.n + " of " + w.tot + " exercises done (" + w.len + " min version). Ticks itself when the workout is finished.";
+  const a = document.createElement("a"); a.className = "btn"; a.href = "./"; a.textContent = "Open Workout"; a.style.alignSelf = "flex-start"; a.style.marginTop = "6px"; a.style.textDecoration = "none";
+  body.append(name, n, a);
+  row.append(cb, body); return row;
+}
+
+async function render() {
+  const k = isoDate(sel), v = await load(k); await loadWork(k);
+  const isToday = k === isoDate(today);
+  document.getElementById("dayname").textContent = isToday ? "Today" : sel.toLocaleDateString(undefined, { weekday: "long" });
+  document.getElementById("daydate").textContent = sel.toLocaleDateString(undefined, { weekday: isToday ? "long" : undefined, day: "numeric", month: "long" });
+  document.getElementById("next").disabled = isToday;
+  document.getElementById("daytimes").textContent = "Up " + niceTime(typeof v.wake === "string" ? v.wake : "") + "  ·  Bed " + niceTime(typeof v.bed === "string" ? v.bed : "") + "  ·  " + countH(v, k) + " of " + ALL.length + " done";
+  const prevDay = new Date(sel); prevDay.setDate(sel.getDate() - 1);
+  const sleepMins = sleepBetween((await load(isoDate(prevDay))).bed, v.wake);
+  const sleepText = sleepMins == null ? "" : "Slept about " + Math.floor(sleepMins / 60) + " h " + String(sleepMins % 60).padStart(2, "0") + " min";
+  const ds = document.getElementById("daysleep"); ds.textContent = sleepText; ds.hidden = !sleepText;
+  const list = document.getElementById("list"); list.textContent = "";
+  HABITS.filter(g => g.items.length).forEach(g => {
+    const sec = document.createElement("section"); sec.className = "group";
+    const h = document.createElement("h3"); h.textContent = g.cat; sec.appendChild(h);
+    g.items.forEach(it => sec.appendChild(habitRow(it, v, k, isToday, sleepText)));
+    list.appendChild(sec);
+  });
+  const wk = document.getElementById("week"); wk.textContent = "";
+  for (const d of weekOf(sel)) {
+    const dk = isoDate(d), dv = await load(dk); if (d <= today) await loadWork(dk);
+    const c = document.createElement("button"); c.type = "button"; c.className = "wk" + (dk === k ? " sel" : "");
+    c.disabled = d > today; c.onclick = () => { sel = new Date(d); render(); };
+    c.innerHTML = "<b></b><span></span><i></i>";
+    c.querySelector("b").textContent = d.toLocaleDateString(undefined, { weekday: "short" });
+    c.querySelector("span").textContent = d > today ? "" : niceTime(typeof dv.wake === "string" ? dv.wake : "");
+    c.querySelector("i").textContent = d > today ? "" : countH(dv, dk) + "/" + ALL.length;
+    wk.appendChild(c);
+  }
+}
+document.getElementById("prev").onclick = () => { sel.setDate(sel.getDate() - 1); render(); };
+document.getElementById("next").onclick = () => { if (isoDate(sel) !== isoDate(today)) { sel.setDate(sel.getDate() + 1); render(); } };
+render();
+// Coming back to this page (app switch or Back) re-reads the Workout ticks so Exercise program is current.
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { for (const k in work) delete work[k]; render(); } });
+</script>
+<script src="nav.js?v=6"></script>
+</body></html>
