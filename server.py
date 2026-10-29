@@ -202,6 +202,8 @@ class Handler(SimpleHTTPRequestHandler):
                     body["note"] = b["note"].strip()[:1000]
                 if isinstance(b.get("steps"), list):
                     body["steps"] = clean_steps(b["steps"])
+                if isinstance(b.get("waitingOn"), str):
+                    body["waitingOn"] = b["waitingOn"].strip()[:120]
                 for k in ("chased", "closed"):
                     if b.get(k) is True:
                         body[k] = True

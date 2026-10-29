@@ -298,6 +298,7 @@ function signForm(w) {
 function waitCard(w, due) {
   w.steps = w.steps || [];
   const c = el("div", "wait" + (due ? " due" : "")), isOpen = openCard === w.id;
+  c.id = "wc-" + w.id;
   const left = w.steps.filter(s => !s.done).length;
   const h = el("button", "whead"); h.type = "button"; h.setAttribute("aria-expanded", isOpen ? "true" : "false");
   h.onclick = () => { openCard = isOpen ? null : w.id; openForm = null; draw(); };
@@ -329,7 +330,24 @@ function waitCard(w, due) {
   } else {
     const tl = el("div", "tools"); tl.append(btn("+ Add item", "", () => { openForm = "a" + w.id; draw(); })); o.append(tl);
   }
-  if (w.note) { o.append(el("h4", "", "Notes")); o.append(el("div", "wnote", w.note)); }
+  o.append(el("h4", "", "Notes"));
+  o.append(el("div", w.note ? "wnote" : "note", w.note || "No notes yet."));
+  // Change who it's waiting on, or add a dated note; held until Save
+  const ef = el("div", "form");
+  const who = el("input"); who.value = w.waitingOn || "";
+  const lw = el("label", "", "Waiting on"); lw.append(who);
+  const nt = el("textarea"); nt.rows = 2; nt.placeholder = "e.g. Rang them, posting it Friday";
+  const ln = el("label", "", "Add a note"); ln.append(nt);
+  const sv = btn("Save", "go", async () => {
+    const change = {};
+    if (who.value.trim() !== (w.waitingOn || "")) change.waitingOn = who.value.trim();
+    if (nt.value.trim()) { const stamp = today.toLocaleDateString("en-AU", { day: "numeric", month: "short" }) + ": " + nt.value.trim(); change.note = w.note ? w.note + "\n" + stamp : stamp; }
+    if (!Object.keys(change).length) return;
+    try { await call("api/mc/waiting", "PATCH", { id: w.id, ...change }); say("Saved."); load(); }
+    catch (e) { say("Not saved: " + e.message); }
+  });
+  ef.append(lw, ln, el("div", "tools")); ef.lastChild.append(sv);
+  o.append(ef);
   c.append(o);
   const tl = el("div", "tools");
   tl.append(btn("✓ Sign off", "go", () => { openForm = openForm === "s" + w.id ? null : "s" + w.id; draw(); }));
@@ -377,7 +395,11 @@ function draw() {
     const body = el("div", "body");
     const nm = el("div", "name"); nm.append(el("span", "mtag", "MIT " + (i + 1)), m.title); body.append(nm);
     if (park) {
-      body.append(el("div", "ptag", "⏸ Done for today · waiting on " + (park.waitingOn || "someone") + " · chase " + shortDay(park.chaseOn)));
+      const left = (park.steps || []).filter(s => !s.done).length;
+      body.append(el("div", "ptag", "⏸ Done for today · waiting on " + (park.waitingOn || "someone") + " · chase " + shortDay(park.chaseOn) + (left ? " · " + left + " open" : "")));
+      // Open: opens its Follow up card (under Chase today or Waiting on others) and scrolls to it
+      const ob = btn("Open ›", "", () => { openCard = park.id; openForm = null; draw(); const t = document.getElementById("wc-" + park.id); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); });
+      ob.style.marginTop = "6px"; ob.style.alignSelf = "flex-start"; ob.style.width = "auto"; body.append(ob);
       row.append(cb, body); list.append(row); return;
     }
     if (done) { row.append(cb, body); list.append(row); return; }
