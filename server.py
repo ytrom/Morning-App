@@ -186,7 +186,7 @@ class Handler(SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_PATCH(self):
-        # Ticking MIT steps and LITs (id, steps, done), and chasing or signing off a Waiting item (with a note)
+        # Ticking MIT steps and LITs (id, steps, done), and chasing, ticking items on or signing off a Waiting item (with a note)
         if not self.guard():
             return
         path = self.path.split("?")[0]
@@ -200,6 +200,8 @@ class Handler(SimpleHTTPRequestHandler):
                     body["chaseOn"] = b["chaseOn"]
                 if isinstance(b.get("note"), str):
                     body["note"] = b["note"].strip()[:1000]
+                if isinstance(b.get("steps"), list):
+                    body["steps"] = clean_steps(b["steps"])
                 for k in ("chased", "closed"):
                     if b.get(k) is True:
                         body[k] = True

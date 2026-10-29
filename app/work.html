@@ -113,6 +113,16 @@ h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-
 .wait.due { border-color: var(--done); border-left-width: 4px; }
 .wait b { font-weight: 600; }
 .wsteps { margin: 2px 0 0; padding-left: 18px; font-size: .88rem; color: var(--muted); }
+.whead { all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
+.whead .ttl { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.whead .more { color: var(--accent); font-weight: 700; font-size: .88rem; white-space: nowrap; }
+.wopen { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.wopen h4 { margin: 4px 0 0; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.witem { display: flex; gap: 10px; align-items: center; font-size: .95rem; }
+.witem input { width: 22px; height: 22px; flex: none; }
+.witem.d span { text-decoration: line-through; color: var(--muted); }
+.wnote { white-space: pre-line; font-size: .9rem; }
+.owarn { background: var(--bg); color: var(--done); font-size: .88rem; border-radius: 8px; padding: 6px 8px; }
 .offrow { display: flex; justify-content: flex-end; margin-bottom: -6px; }
 .offbtn { border: 0; border-radius: 99px; background: #a8650a; color: #fff; font: 700 .95rem var(--body); padding: 9px 16px; cursor: pointer; }
 .warn { background: #fdecea; color: #a12a12; border-radius: 12px; padding: 12px 14px; }
@@ -139,6 +149,7 @@ h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-
 // through this app's server (/api/mc/day-plan), so it works from the phone away from the LAN too.
 // Same follow-up flow as Mission Control › Work: "+ Add step", "Done for today, waiting on…" (onto the
 // Waiting list via /api/mc/waiting with a chase date), Chase today, and done MITs shut and drop to the bottom.
+// A chase card opens on tap to show its items still to do and notes before signing it off.
 const TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const z = n => String(n).padStart(2, "0");
 const iso = d => d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
@@ -165,7 +176,7 @@ const plus = n => { const d = new Date(today); d.setDate(d.getDate() + n); retur
 const nextMon = () => { const d = new Date(today); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return iso(d); };
 const shortDay = k => { if (k === iso(today)) return "today"; if (k === plus(1)) return "tomorrow"; const d = new Date(k + "T12:00"); return DAYS[d.getDay()] + " " + d.getDate() + "/" + (d.getMonth() + 1); };
 const isDone = m => !!m.done || (m.steps.length > 0 && m.steps.every(s => s.done));
-let waiting = [], openForm = null;
+let waiting = [], openForm = null, openCard = null;
 
 async function call(path, method, body) {
   const r = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -250,11 +261,17 @@ function parkForm(m) {
 async function bringBack(w, kind) {
   try {
     await call("api/mc/day-plan", "POST", { day: iso(today), kind, title: w.title, taskId: w.taskId,
-      steps: kind === "lit" ? [{ text: w.title, min: 15 }] : w.steps });
+      steps: kind === "lit" ? [{ text: w.title, min: 15 }] : (w.steps || []).filter(s => !s.done) });
     await call("api/mc/waiting", "PATCH", { id: w.id, closed: true });
     say("Back on today's list as a" + (kind === "mit" ? "n MIT." : " LIT."));
     load();
   } catch (e) { say(/already has/.test(e.message) ? e.message + ". Sign it off instead, or make it a LIT." : "Not saved: " + e.message); }
+}
+
+// Items ticked or added on an opened chase card save back onto the waiting item
+async function keepWait(w) {
+  try { await call("api/mc/waiting", "PATCH", { id: w.id, steps: w.steps }); }
+  catch (e) { say("Not saved: " + e.message); }
 }
 
 // Sign off: it came back and it's finished. Closes the waiting item, keeping what happened as its note.
@@ -263,6 +280,8 @@ function signForm(w) {
   const f = el("div", "form");
   const t = el("textarea"); t.rows = 2; t.placeholder = "What happened? e.g. Unity paid the deposit, all sorted";
   const l = el("label", "", "Sign-off note (optional)"); l.append(t);
+  const left = (w.steps || []).filter(s => !s.done);
+  if (left.length) f.append(el("div", "owarn", "Still open: " + left.map(s => s.text).join(" · ") + ". Signing off closes these too."));
   const go = btn("✓ Done · close it out", "go", async () => {
     const said = t.value.trim(), stamp = "Signed off " + today.toLocaleDateString("en-AU", { day: "numeric", month: "short" }) + (said ? ": " + said : "");
     try {
@@ -275,16 +294,43 @@ function signForm(w) {
   return f;
 }
 
+// A chase card. Tap it to open it: the items still to do (tick or add one) and the notes, then the buttons.
 function waitCard(w, due) {
-  const c = el("div", "wait" + (due ? " due" : ""));
-  const t = el("b", "", w.title); c.append(t);
-  c.append(el("div", "note", "Waiting on " + (w.waitingOn || "someone") + " · chase " + shortDay(w.chaseOn) + (w.chases ? " · chased " + w.chases + "×" : "")));
-  if (w.note) c.append(el("div", "note", w.note));
-  if (w.steps && w.steps.length) {
-    const ul = el("ul", "wsteps");
-    w.steps.forEach(s => ul.append(el("li", "", s.text + (s.min ? " · " + s.min + " min" : ""))));
-    c.append(ul);
+  w.steps = w.steps || [];
+  const c = el("div", "wait" + (due ? " due" : "")), isOpen = openCard === w.id;
+  const left = w.steps.filter(s => !s.done).length;
+  const h = el("button", "whead"); h.type = "button"; h.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  h.onclick = () => { openCard = isOpen ? null : w.id; openForm = null; draw(); };
+  const tt = el("div", "ttl"); tt.append(el("b", "", w.title), el("span", "more", isOpen ? "Close ▴" : "Open ▾")); h.append(tt);
+  h.append(el("div", "note", "Waiting on " + (w.waitingOn || "someone") + " · chase " + shortDay(w.chaseOn) + (w.chases ? " · chased " + w.chases + "×" : "")));
+  if (!isOpen && w.steps.length) h.append(el("div", "note", left ? left + " item" + (left > 1 ? "s" : "") + " still open" : "All items done"));
+  c.append(h);
+  if (!isOpen) return c;
+  const o = el("div", "wopen");
+  o.append(el("h4", "", "Items" + (w.steps.length ? " · " + (left ? left + " still open" : "all done") : "")));
+  if (!w.steps.length) o.append(el("div", "note", "Nothing else listed on this one."));
+  w.steps.forEach(s => {
+    const r = el("label", "witem" + (s.done ? " d" : "")), cb = el("input"); cb.type = "checkbox"; cb.checked = !!s.done;
+    cb.onchange = () => { s.done = cb.checked; keepWait(w); draw(); };
+    r.append(cb, el("span", "", s.text + (s.min ? " · " + s.min + " min" : ""))); o.append(r);
+  });
+  if (openForm === "a" + w.id) {
+    const f = el("div", "form"), row = el("div", "row");
+    const t = el("input"); t.placeholder = "Another item"; t.setAttribute("aria-label", "Item");
+    const n = el("input"); n.type = "number"; n.min = "0"; n.value = "10"; n.setAttribute("aria-label", "Minutes");
+    row.append(t, n);
+    const go = btn("Add item", "go", () => {
+      if (!t.value.trim()) return t.focus();
+      w.steps.push({ text: t.value.trim(), min: Math.max(0, +n.value || 0), done: false });
+      openForm = null; keepWait(w); draw();
+    });
+    f.append(row, el("div", "tools")); f.lastChild.append(go, btn("Cancel", "", () => { openForm = null; draw(); }));
+    setTimeout(() => t.focus(), 0); o.append(f);
+  } else {
+    const tl = el("div", "tools"); tl.append(btn("+ Add item", "", () => { openForm = "a" + w.id; draw(); })); o.append(tl);
   }
+  if (w.note) { o.append(el("h4", "", "Notes")); o.append(el("div", "wnote", w.note)); }
+  c.append(o);
   const tl = el("div", "tools");
   tl.append(btn("✓ Sign off", "go", () => { openForm = openForm === "s" + w.id ? null : "s" + w.id; draw(); }));
   if (due) tl.append(
