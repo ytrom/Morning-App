@@ -90,6 +90,10 @@ h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-
 .lit { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; cursor: pointer; }
 .lit input { width: 20px; height: 20px; accent-color: var(--lit); margin: 0; }
 .lit.d span { text-decoration: line-through; color: var(--muted); }
+.lit:has(.lwait) { grid-template-columns: 22px 1fr auto; }
+.lit .lwait { width: auto; padding: 6px 10px; font-size: .8rem; color: var(--done); white-space: nowrap; }
+.lpark { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -2px 0 4px 46px; }
+.lpark button { width: auto; padding: 4px 10px; font-size: .8rem; }
 .ltag { font: 700 .72rem/1 var(--body); text-transform: uppercase; letter-spacing: .06em; color: var(--lit); margin-right: 6px; }
 .empty { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 14px; color: var(--muted); }
 .item.mit.shut { grid-template-columns: auto 1fr; align-items: center; padding: 8px 14px; }
@@ -238,16 +242,16 @@ function parkForm(m) {
   const l3 = el("label", "", "Next step when it comes back (optional)"); l3.append(nx);
   const note = el("textarea"); note.rows = 2;
   const l4 = el("label", "", "Note (optional)"); l4.append(note);
-  const go = btn("⏸ Park it", "go", async () => {
+  const go = btn(m.kind === "lit" ? "⏸ Waiting on them" : "⏸ Park it", "go", async () => {
     if (!who.value.trim()) return who.focus();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(chase)) return date.focus();
-    const steps = m.steps.filter(s => !s.done).map(s => ({ text: s.text, min: s.min }));
+    const steps = (m.steps || []).filter(s => !s.done).map(s => ({ text: s.text, min: s.min }));
     if (nx.value.trim()) steps.push({ text: nx.value.trim(), min: 15 });
     go.disabled = true;
     try {
       await call("api/mc/waiting", "POST", { title: m.title, waitingOn: who.value.trim(), chaseOn: chase, planId: m.id, taskId: m.taskId, note: note.value.trim(), steps });
       await call("api/mc/day-plan", "PATCH", { id: m.id, done: true });
-      openForm = null; say("Done for today. Chase " + shortDay(chase) + ".");
+      openForm = null; say((m.kind === "lit" ? "On Follow up. Chase " : "Done for today. Chase ") + shortDay(chase) + ".");
       load();
     } catch (e) { go.disabled = false; say("Not saved: " + e.message); }
   });
@@ -426,7 +430,23 @@ function draw() {
       const r = el("label", "lit" + (l.done ? " d" : ""));
       const c = el("input"); c.type = "checkbox"; c.checked = !!l.done;
       c.onchange = () => { l.done = c.checked; keep(l); draw(); };
-      const tx = el("span"); tx.append(el("b", "ltag", "LIT"), l.title); r.append(c, tx); list.append(r);
+      const tx = el("span"); tx.append(el("b", "ltag", "LIT"), l.title); r.append(c, tx);
+      const park = l.done && parkedBy(l.id);
+      if (!l.done) {
+        // Waiting on someone: today's LIT counts as done and it goes on Follow up with a chase date
+        const wb = btn("⏸ Waiting on…", "lwait", () => { openForm = openForm === "p" + l.id ? null : "p" + l.id; draw(); });
+        wb.onclick = e => { e.preventDefault(); openForm = openForm === "p" + l.id ? null : "p" + l.id; draw(); };
+        r.append(wb);
+      }
+      list.append(r);
+      if (park) {
+        const left = (park.steps || []).filter(s => !s.done).length;
+        const pl = el("div", "lpark");
+        pl.append(el("span", "ptag", "⏸ Waiting on " + (park.waitingOn || "someone") + " · chase " + shortDay(park.chaseOn) + (left ? " · " + left + " open" : "")),
+          btn("Open ›", "", () => { openCard = park.id; openForm = null; draw(); const t = document.getElementById("wc-" + park.id); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); }));
+        list.append(pl);
+      }
+      if (openForm === "p" + l.id) list.append(parkForm(l));
     });
   }
   if (isToday) {
