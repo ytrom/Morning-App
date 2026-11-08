@@ -98,7 +98,10 @@ button.wk { cursor: pointer; } button.wk:disabled { cursor: default; opacity: .5
       try {
         const res = await fetch("api/mc/inbox", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, kind }) });
         if (!res.ok) throw 0;
-        inp.value = ""; msg.textContent = "Saved. Add another, or close."; inp.focus();
+        close();
+        const t = document.createElement("div"); t.setAttribute("role", "status"); t.textContent = "Saved to Inbox";
+        t.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1E7B45;color:#fff;font-weight:700;padding:10px 18px;border-radius:999px;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.2)";
+        document.body.appendChild(t); setTimeout(() => t.remove(), 2200);
       } catch { msg.textContent = "Couldn't reach Mission Control. Nothing was saved."; }
     };
     inp.focus();
